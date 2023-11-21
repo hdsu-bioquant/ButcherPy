@@ -61,6 +61,10 @@ def NMF_tensor_py(matrix,
         ##-------------------------------------------------------------------##
         ##                  Initialize W and H matrices                      ##
         ##-------------------------------------------------------------------##
+        # This is really where the magic happens: W and H are initialized
+        # randomly, and then iteratively updated until convergence
+        
+        # Initialize uniform distribution (0 to 1)
         initializer = tf.random_uniform_initializer(minval=0, maxval=1)
         
         H = tf.Variable(initializer(shape=[rank, m]), name="H")
@@ -73,6 +77,9 @@ def NMF_tensor_py(matrix,
             Best_frob = tf.linalg.norm(X - tf.matmul(W, H)) / tf.linalg.norm(X)
             Best_H    = H
             Best_W    = W            
+        # Calc. the relative Frobenius norm of the difference between a matrix X 
+        # and the product of matrices W and H
+        # This metric can be used as a sort of loss function
     
         ##-------------------------------------------------------------------##
         ##        Save initial max exposures in H matrices                   ##
