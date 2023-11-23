@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-Contains the main functions needed to run NMF in TensorFlow
+Contains the main function needed to run (basic) NMF in TensorFlow
 
 Created by Andres Quintero  
-Reimplemented in Python by Ana Luisa Costa
+Reimplemented for Python by Ana Luisa Costa
 """
 
 # Dependencies
@@ -86,7 +86,7 @@ def NMF_tensor_py(matrix,
         ##-------------------------------------------------------------------##
         #Hts = [tf.add(H, Hv) for Hv in Hvs]
         #oldExposures = tf.concat([tf.math.argmax(Ht, axis=1) for Ht in Hts], 0)
-        oldExposures = tf.math.argmax(H, axis=0)
+        oldExposures = tf.math.argmax(H, axis=0) # outputs indices of max values
         const = 0            
     
         ##-------------------------------------------------------------------##
@@ -124,7 +124,7 @@ def NMF_tensor_py(matrix,
                 const += 1
                 #print(f'new eval diff, {const}')
                 if const == stop_threshold:
-                    #print(f"NMF converged after {i} iterations")
+                    print(f"NMF converged after {inner} iterations")
                     break
         
         ##-------------------------------------------------------------------##
