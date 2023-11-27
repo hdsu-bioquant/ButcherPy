@@ -5,15 +5,13 @@
 Contains the main function needed to run (basic) NMF in TensorFlow
 
 Created by Andres Quintero  
-Reimplemented for Python by Ana Luisa Costa
+Reimplemented for Pytorch by Ana Luisa Costa
 """
 
 # Dependencies
 import os
-import tensorflow as tf
-
-# Control tensorflow log level
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = "0"
+import torch
+import numpy as np
 
 # Define the NMF_tensor_py function
 def NMF_tensor_py(matrix, 
@@ -36,14 +34,13 @@ def NMF_tensor_py(matrix,
       nthreads: 
     """
     # Set number of threads                
-    tf.config.threading.set_intra_op_parallelism_threads(nthreads)
-    tf.config.threading.set_inter_op_parallelism_threads(nthreads)
+    torch.set_num_threads(nthreads)
     
     # NMF in tensorflow
     n = matrix.shape[0] # number of rows
     m = matrix.shape[1] # number of columns    
     # Creates a constant tensor object from the matrix
-    X = tf.constant(matrix, name = ("X"), dtype=tf.float32)
+    X = torch.tensor(matrix)
     
     # Initialization Metrics 
     frobNorm = []
@@ -55,7 +52,7 @@ def NMF_tensor_py(matrix,
     ##-----------------------------------------------------------------------##
     # cycle through n initializations and choose best factorization
     if seed is not None:
-      tf.random.set_seed(seed)
+      torch.manual_seed(seed)
     for init_n in range(n_initializations):
         
         ##-------------------------------------------------------------------##
