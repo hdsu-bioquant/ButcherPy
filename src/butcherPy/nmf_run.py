@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Contains the main function needed to run (basic) NMF in TensorFlow
+Contains the main function needed to run (basic) NMF in Pytorch
 
 Created by Andres Quintero  
 Reimplemented for Pytorch by Ana Luisa Costa
