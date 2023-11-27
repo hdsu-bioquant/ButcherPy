@@ -12,6 +12,8 @@ Reimplemented for Pytorch by Ana Luisa Costa
 import os
 import torch
 import numpy as np
+from defineNMF_class import NMFobject
+
 
 # Define the NMF_tensor_py function
 def NMF_tensor_py(matrix, 
