@@ -26,12 +26,12 @@ def NMF_tensor_py(matrix,
     """
     Iteratively runs NMF to choose best factorisation rank for input matrix V
       matrix: initial V matrix
-      rank: factorisation rank
-      n_initializations: 
-      iterations: 
+      rank: factorisation rank (k)
+      n_initializations: number of initializations to run NMF
+      iterations: number of iterations to run NMF for each initialization
       seed: random seed selected
-      stop_threshold:
-      nthreads: 
+      stop_threshold: when to stop the iterations after convergence
+      nthreads: apply multi-threading if your system supports it
     """
     # Set number of threads                
     torch.set_num_threads(nthreads)
@@ -62,16 +62,14 @@ def NMF_tensor_py(matrix,
         # randomly, and then iteratively updated until convergence
         
         # Initialize uniform distribution (0 to 1)
-        initializer = tf.random_uniform_initializer(minval=0, maxval=1)
-        
-        H = tf.Variable(initializer(shape=[rank, m]), name="H")
-        W = tf.Variable(initializer(shape=[n, rank]), name="W")
+        H = torch.empty(rank, m).uniform_(0, 1)
+        W = torch.empty(n, rank).uniform_(0, 1)
     
         ##-------------------------------------------------------------------##
         ##                     Initialize frob error                         ##
         ##-------------------------------------------------------------------##
         if init_n == 0 :            
-            Best_frob = tf.linalg.norm(X - tf.matmul(W, H)) / tf.linalg.norm(X)
+            Best_frob = np.linalg.norm(X.numpy() - torch.matmul(W, H).numpy()) / np.linalg.norm(X.numpy())
             Best_H    = H
             Best_W    = W            
         # Calc. the relative Frobenius norm of the difference between a matrix X 
@@ -81,9 +79,7 @@ def NMF_tensor_py(matrix,
         ##-------------------------------------------------------------------##
         ##        Save initial max exposures in H matrices                   ##
         ##-------------------------------------------------------------------##
-        #Hts = [tf.add(H, Hv) for Hv in Hvs]
-        #oldExposures = tf.concat([tf.math.argmax(Ht, axis=1) for Ht in Hts], 0)
-        oldExposures = tf.math.argmax(H, axis=0) # outputs indices of max values
+        oldExposures = torch.argmax(H, dim=0) # outputs indices of max values
         const = 0            
     
         ##-------------------------------------------------------------------##
@@ -93,28 +89,28 @@ def NMF_tensor_py(matrix,
             ##---------------------------------------------------------------##
             ##                          Update H                             ##
             ##---------------------------------------------------------------##
-            WTX  = tf.matmul(W, X, transpose_a=True)
-            WTW  = tf.matmul(W, W, transpose_a=True)
-            WTWH = tf.matmul(WTW, H, transpose_a=True)
-            newH = tf.math.divide(tf.math.multiply(H, WTX), WTWH)
-            newH = tf.where(tf.math.is_nan( newH ), tf.zeros_like( newH ), newH )
+            WTX  = torch.matmul(W.t(), X)
+            WTW  = torch.matmul(W.t(), W)
+            WTWH = torch.matmul(WTW.t(), H)
+            newH = torch.div(torch.mul(H, WTX), WTWH)
+            newH = torch.where(torch.isnan(newH), torch.zeros_like(newH), newH)
             update_H = H.assign(newH)
     
             ##---------------------------------------------------------------##
             ##                          Update W                             ##
             ##---------------------------------------------------------------##
-            XHT  = tf.matmul(X, H, transpose_b=True)
-            WH   = tf.matmul(W, H)
-            WHHT = tf.matmul(WH, H, transpose_b=True)
-            newW = tf.math.divide(tf.math.multiply(W, XHT), WHHT)
-            newW = tf.where(tf.math.is_nan( newW ), tf.zeros_like( newW ), newW )
+            XHT  = torch.matmul(X, H.t())
+            WH   = torch.matmul(W, H)
+            WHHT = torch.matmul(WH, H.t())
+            newW = torch.div(torch.mul(W, XHT), WHHT)
+            newW = torch.where(torch.isnan(newW), torch.zeros_like(newW), newW)
             update_W = W.assign(newW)
             
             ##---------------------------------------------------------------##
             ##                    Evaluate Convergence                       ##
             ##---------------------------------------------------------------##
-            newExposures = tf.math.argmax(H, axis=0)
-            if tf.reduce_all(tf.math.equal(oldExposures, newExposures)).__invert__():
+            newExposures = torch.argmax(H, axis=0)
+            if torch.reduce_all(torch.eq(oldExposures, newExposures)).__invert__():
                 oldExposures = newExposures
                 const = 0
             else:
@@ -127,7 +123,8 @@ def NMF_tensor_py(matrix,
         ##-------------------------------------------------------------------##
         ##         Evaluate if best factorization initialization             ##
         ##-------------------------------------------------------------------##
-        frobInit = tf.linalg.norm(X - tf.matmul(W, H)) / tf.linalg.norm(X)
+        frobInit = np.linalg.norm(X.numpy() - torch.matmul(W, H).numpy()) / np.linalg.norm(X.numpy())
+        
         # Append to list of initialization metrics
         frobNorm.append(frobInit)
         iter_to_conv.append(inner+1)
