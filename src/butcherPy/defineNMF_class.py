@@ -35,48 +35,48 @@ class NMFobject:
         self.final_iterations = final_iterations
         self.frobenius = frobenius
     
-    @ property
-    def calc_rank_selection_metrics(self, 
-                                    metric = 'all'):
-        """
-        Calculates the rank selection metrics for each k. 
-        Metrics include:
-            - Frobenius norm (smaller is better)
-            - Amari Distance (smaller is better)
-            - Silhouette Width (larger is better)
-            - Cophenetic Correlation Coefficient (larger is better)
-        """
+    # @ property
+    # def calc_rank_selection_metrics(self, 
+    #                                 metric = 'all'):
+    #     """
+    #     Calculates the rank selection metrics for each k. 
+    #     Metrics include:
+    #         - Frobenius norm (lower is better)
+    #         - Amari Distance (lower is better)
+    #         - Silhouette Width (higher is better)
+    #         - Cophenetic Correlation Coefficient (higher is better)
+    #     """
         
         
     
-    @ property
-    def plot_rank_selection_metrics(self, 
-                                    metric = 'all', 
-                                    save = False, 
-                                    save_path = None):
-        """
-        Plot the rank selection metrics (frobenius) for each k
-        """
+    # @ property
+    # def plot_rank_selection_metrics(self, 
+    #                                 metric = 'all', 
+    #                                 save = False, 
+    #                                 save_path = None):
+    #     """
+    #     Plot the rank selection metrics (frobenius) for each k
+    #     """
  
-        # Define the x axis
-        x = np.arange(1, len(self.frobenius) + 1)
+    #     # Define the x axis
+    #     x = np.arange(1, len(self.frobenius) + 1)
         
-        # Plot the metrics
-        plt.plot(x, self.frobenius, label = 'Frobenius')
+    #     # Plot the metrics
+    #     plt.plot(x, self.frobenius, label = 'Frobenius')
         
-        # Add labels
-        plt.xlabel('Rank')
-        plt.ylabel('Metric')
+    #     # Add labels
+    #     plt.xlabel('Rank')
+    #     plt.ylabel('Metric')
         
-        # Add legend
-        plt.legend()
+    #     # Add legend
+    #     plt.legend()
         
-        # Save the plot
-        if save == True:
-            plt.savefig(save_path)
+    #     # Save the plot
+    #     if save == True:
+    #         plt.savefig(save_path)
         
-        # Show the plot
-        plt.show()
+    #     # Show the plot
+    #     plt.show()
         
         
         

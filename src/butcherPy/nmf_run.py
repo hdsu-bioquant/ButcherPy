@@ -128,6 +128,7 @@ def run_NMF(matrix,
         frobInit = np.linalg.norm(X.numpy() - torch.matmul(W, H).numpy()) / np.linalg.norm(X.numpy())
         
         # Append to list of initialization metrics
+        print("Appending results to the list of metrics")
         frobNorm.append(frobInit)
         iter_to_conv.append(inner+1)
         W_eval.append(W)
@@ -145,6 +146,7 @@ def run_NMF(matrix,
     ##-----------------------------------------------------------------------##
     ##             Convert to numpy, transpose and return                    ##
     ##-----------------------------------------------------------------------##
+    print("Preparing results to output.")
     W_num  = Best_W.numpy()
     H_num  = Best_H.numpy()
 
@@ -160,6 +162,7 @@ def run_NMF(matrix,
                           frobenius = frobNorm 
                           )
     
+    print("Completed NMF run and compiled results into NMF object.")
     # Return the NMF object specific to this run
     return NMF_out_o
 
