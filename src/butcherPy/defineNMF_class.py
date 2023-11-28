@@ -14,10 +14,11 @@ class NMFobject:
     """
     Class of the NMF object resulting from a single NMF run with multiple ranks
     Includes functions for visualisation and summaries of the results:
-        - plot_rank_selection_metrics
-        - plot_convergence
-        - plot_H
-        - plot_W
+        - calc_rank_selection_metrics - calculates the rank selection metrics
+        - plot_rank_selection_metrics - plots the rank selection metrics
+        - plot_convergence - plots the progress of the NMF convergence
+        - plot_H - heatmap of H matrix exposures
+        - plot_W - heatmap of W matrix exposures
     """
     
     def __init__(self, 
@@ -35,15 +36,28 @@ class NMFobject:
         self.frobenius = frobenius
     
     @ property
+    def calc_rank_selection_metrics(self, 
+                                    metric = 'all'):
+        """
+        Calculates the rank selection metrics for each k. 
+        Metrics include:
+            - Frobenius norm (smaller is better)
+            - Amari Distance (smaller is better)
+            - Silhouette Width (larger is better)
+            - Cophenetic Correlation Coefficient (larger is better)
+        """
+        
+        
+    
+    @ property
     def plot_rank_selection_metrics(self, 
-                                    metric = 'frobenius', 
+                                    metric = 'all', 
                                     save = False, 
                                     save_path = None):
         """
-        Plot the rank selection metrics (frobenius)
+        Plot the rank selection metrics (frobenius) for each k
         """
  
-        
         # Define the x axis
         x = np.arange(1, len(self.frobenius) + 1)
         
