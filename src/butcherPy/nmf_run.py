@@ -151,7 +151,17 @@ def NMF_tensor_py(matrix,
     frobNorm    = [i.numpy() for i in frobNorm]
     W_eval_num  = [i.numpy() for i in W_eval]
     
-    return W_num, H_num, iter_to_conv, frobNorm, W_eval_num
-    #frobNorm = tf.linalg.norm(X - tf.matmul(W, H)) / tf.linalg.norm(X)
-    #return W.numpy(),H.numpy(), i, frobNorm.numpy()
+    # Compile the results into a single NMF object
+    NMF_out_o = NMFobject(k = rank,
+                          H = H_num, 
+                          W = W_num, 
+                          W_eval = W_eval_num,
+                          final_iterations = iter_to_conv, 
+                          frobenius = frobNorm 
+                          )
+    
+    # Return the NMF object specific to this run
+    return NMF_out_o
+
+
 
