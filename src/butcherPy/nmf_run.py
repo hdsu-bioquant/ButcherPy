@@ -16,14 +16,14 @@ from defineNMF_class import NMFobject
 
 
 # Define the NMF_tensor_py function
-def NMF_tensor_py(matrix, 
-                  rank, # k or common dim
-                  n_initializations, 
-                  iterations, 
-                  seed, 
-                  stop_threshold=40, 
-                  nthreads=0, 
-                  **kwargs):
+def run_NMF(matrix, 
+            rank, # k or common dim
+            n_initializations, 
+            iterations, 
+            seed, 
+            stop_threshold=40, 
+            nthreads=0, 
+            **kwargs):
     
     """
     Iteratively runs NMF to choose best factorisation rank for input matrix V
