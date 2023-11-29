@@ -42,7 +42,7 @@ def run_NMF(matrix,
     n = matrix.shape[0] # number of rows
     m = matrix.shape[1] # number of columns    
     # Creates a constant tensor object from the matrix
-    X = torch.tensor(matrix)
+    X = torch.tensor(matrix, dtype=torch.float32)
     
     # Initialization Metrics 
     frobNorm = []
@@ -96,7 +96,7 @@ def run_NMF(matrix,
             WTWH = torch.matmul(WTW.t(), H)
             newH = torch.div(torch.mul(H, WTX), WTWH)
             newH = torch.where(torch.isnan(newH), torch.zeros_like(newH), newH)
-            update_H = H.assign(newH)
+            H = newH # tensors are mutable, so no need to use assign in pytorch
     
             ##---------------------------------------------------------------##
             ##                          Update W                             ##
@@ -106,13 +106,13 @@ def run_NMF(matrix,
             WHHT = torch.matmul(WH, H.t())
             newW = torch.div(torch.mul(W, XHT), WHHT)
             newW = torch.where(torch.isnan(newW), torch.zeros_like(newW), newW)
-            update_W = W.assign(newW)
+            W = newW
             
             ##---------------------------------------------------------------##
             ##                    Evaluate Convergence                       ##
             ##---------------------------------------------------------------##
             newExposures = torch.argmax(H, axis=0)
-            if torch.reduce_all(torch.eq(oldExposures, newExposures)).__invert__():
+            if torch.all(torch.eq(oldExposures, newExposures)).__invert__():
                 oldExposures = newExposures
                 const = 0
             else:
@@ -125,7 +125,7 @@ def run_NMF(matrix,
         ##-------------------------------------------------------------------##
         ##         Evaluate if best factorization initialization             ##
         ##-------------------------------------------------------------------##
-        frobInit = np.linalg.norm(X.numpy() - torch.matmul(W, H).numpy()) / np.linalg.norm(X.numpy())
+        frobInit = torch.linalg.norm(X - torch.matmul(W, H)) / torch.linalg.norm(X)
         
         # Append to list of initialization metrics
         print("Appending results to the list of metrics")
@@ -153,18 +153,34 @@ def run_NMF(matrix,
     frobNorm    = [i.numpy() for i in frobNorm]
     W_eval_num  = [i.numpy() for i in W_eval]
     
-    # Compile the results into a single NMF object
-    NMF_out_o = NMFobject(k = rank,
-                          H = H_num, 
-                          W = W_num, 
-                          W_eval = W_eval_num,
-                          final_iterations = iter_to_conv, 
-                          frobenius = frobNorm 
-                          )
+    # # Compile the results into a single NMF object
+    # NMF_out_o = NMFobject(k = rank,
+    #                       H = H_num, 
+    #                       W = W_num, 
+    #                       W_eval = W_eval_num,
+    #                       final_iterations = iter_to_conv, 
+    #                       frobenius = frobNorm 
+    #                       )
     
     print("Completed NMF run and compiled results into NMF object.")
     # Return the NMF object specific to this run
-    return NMF_out_o
+    #return NMF_out_o
+    return W_num, H_num, iter_to_conv, frobNorm, W_eval_num
 
+
+# TEST
+np.random.seed(123)
+test_mat = np.random.rand(1000,6)
+test_rank = 3
+tn_initializations = 10
+titerations = 100
+tseed = 123
+tstop_threshold = 40
+tnthreads = 1
+
+nmf_test = run_NMF(test_mat, test_rank, tn_initializations, titerations, tseed, tstop_threshold, tnthreads)
+
+import pickle
+pickle.dump(nmf_test, open("nmf_teste2.p", "wb")) 
 
 
