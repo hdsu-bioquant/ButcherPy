@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Contains the main function needed to run (basic) NMF in Pytorch
+Contains the main function (run_NMF) to run basic NMF in Pytorch
 
 Created by Andres Quintero  
 Reimplemented for Pytorch by Ana Luisa Costa
@@ -66,6 +66,7 @@ def run_NMF(matrix,
         # Initialize uniform distribution (0 to 1)
         H = torch.empty(rank, m).uniform_(0, 1)
         W = torch.empty(n, rank).uniform_(0, 1)
+        print(H.data[0][1])
     
         ##-------------------------------------------------------------------##
         ##                     Initialize frob error                         ##
