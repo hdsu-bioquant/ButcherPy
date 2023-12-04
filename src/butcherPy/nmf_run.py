@@ -43,6 +43,7 @@ def run_NMF(matrix,
     m = matrix.shape[1] # number of columns    
     # Creates a constant tensor object from the matrix
     X = torch.tensor(matrix, dtype=torch.float32)
+    print(f"Initial matrix with {n} rows and {m} columns converted to tensor object.")
     
     # Initialization Metrics 
     frobNorm = []
@@ -129,7 +130,7 @@ def run_NMF(matrix,
         frobInit = torch.linalg.norm(X - torch.matmul(W, H)) / torch.linalg.norm(X)
         
         # Append to list of initialization metrics
-        print("Appending results to the list of metrics")
+        print("Appending results to the list of metrics.")
         frobNorm.append(frobInit)
         iter_to_conv.append(inner+1)
         W_eval.append(W)
@@ -154,19 +155,19 @@ def run_NMF(matrix,
     frobNorm    = [i.numpy() for i in frobNorm]
     W_eval_num  = [i.numpy() for i in W_eval]
     
-    # # Compile the results into a single NMF object
-    # NMF_out_o = NMFobject(k = rank,
-    #                       H = H_num, 
-    #                       W = W_num, 
-    #                       W_eval = W_eval_num,
-    #                       final_iterations = iter_to_conv, 
-    #                       frobenius = frobNorm 
-    #                       )
+    # Compile the results into a single NMF object
+    NMF_out_o = NMFobject(k = rank,
+                          H = H_num, 
+                          W = W_num, 
+                          W_eval = W_eval_num,
+                          final_iterations = iter_to_conv, 
+                          frobenius = frobNorm 
+                          )
     
-    print("Completed NMF run and compiled results into NMF object.")
+    print("Completed NMF run and compiled results into an NMF object.")
     # Return the NMF object specific to this run
-    #return NMF_out_o
-    return W_num, H_num, iter_to_conv, frobNorm, W_eval_num
+    # return W_num, H_num, iter_to_conv, frobNorm, W_eval_num
+    return NMF_out_o
 
 
 # TEST
