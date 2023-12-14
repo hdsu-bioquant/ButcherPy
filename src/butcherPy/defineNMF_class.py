@@ -69,16 +69,18 @@ class NMFobject:
             W_norm_sumtest.append(np.sum(self.W[i], axis = 0))
             
         # If the W matrix was already normalised, return the W matrix
+        # else normalise the W matrix
         if np.all(np.isclose(W_norm_sumtest, 1)) == True:
             print('W matrix was already normalised')
             return self.W
         
-        # Normalise the W matrix exposures by row
-        for i in range(len(self.W)):
-            W_norm.append(self.W[i] / np.sum(self.W[i], axis = 0))
-        
-        # Update the W matrix
-        self.W = W_norm    
+        else:
+            # Normalise the W matrix exposures by row
+            for i in range(len(self.W)):
+                W_norm.append(self.W[i] / np.sum(self.W[i], axis = 0))
+            
+            # Update the W matrix
+            self.W = W_norm
         
     
     
