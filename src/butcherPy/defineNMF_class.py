@@ -58,6 +58,7 @@ class NMFobject:
     def normalise_W(self):
         """
         Normalises the W matrix exposures for all ranks (sum of each column = 1)
+        If the W matrix was already normalised, returns the W matrix
         """
         # Initialise the normalised W matrix
         W_norm = []
