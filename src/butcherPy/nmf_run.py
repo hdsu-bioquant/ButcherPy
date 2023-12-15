@@ -157,6 +157,7 @@ def run_NMF(matrix,
     
     # Compile the results into a single NMF object
     NMF_out_o = NMFobject(k = rank,
+                          NMF_type = 'basic',
                           H = H_num, 
                           W = W_num, 
                           W_eval = W_eval_num,
