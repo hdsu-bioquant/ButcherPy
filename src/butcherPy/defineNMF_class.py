@@ -24,6 +24,7 @@ class NMFobject:
     """
     
     def __init__(self, 
+                 NMF_type = 'basic', # possible values would be basic, regularised, integrative, joint, or temporal
                  k = None, 
                  H = None, 
                  W = None, 
