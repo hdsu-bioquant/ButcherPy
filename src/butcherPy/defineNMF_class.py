@@ -27,6 +27,7 @@ class NMFobject:
                  NMF_type = 'basic', # possible values would be basic, regularised, integrative, joint, or temporal
                  k = None, 
                  H = None, 
+                 Hviews = None, # only for iNMF
                  W = None, 
                  W_eval = None, 
                  final_iterations = None, 
@@ -34,6 +35,7 @@ class NMFobject:
                  timestamp = None):
         self.k = k
         self.H = H
+        self.Hviews = Hviews
         self.W = W
         self.W_eval = W_eval
         self.final_iterations = final_iterations
