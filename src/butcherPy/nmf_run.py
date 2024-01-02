@@ -12,6 +12,8 @@ Reimplemented for Pytorch by Ana Luisa Costa
 import os
 import torch
 import numpy as np
+import calendar
+import time
 from defineNMF_class import NMFobject
 
 
@@ -37,6 +39,10 @@ def run_NMF(matrix,
     """
     # Set number of threads                
     torch.set_num_threads(nthreads)
+    
+    # Add timestamp of the run start
+    current_GMT = time.gmtime()
+    time_stamp = calendar.timegm(current_GMT)
     
     # NMF in tensorflow
     n = matrix.shape[0] # number of rows
@@ -162,7 +168,8 @@ def run_NMF(matrix,
                           W = W_num, 
                           W_eval = W_eval_num,
                           final_iterations = iter_to_conv, 
-                          frobenius = frobNorm 
+                          frobenius = frobNorm,
+                          timestamp = time_stamp 
                           )
     
     print("Completed NMF run and compiled results into an NMF object.")
