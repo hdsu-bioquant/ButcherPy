@@ -5,19 +5,26 @@ from __future__ import division
 import numpy as np
 import os
 import torch
-# import argparse
+import calendar
+import time
+from defineNMF_class import NMFobject
 
 
 """
 Created by Andres Quintero
 Reimplemented for Pytorch by Ana Luisa Costa
 
-This script includes the Pytorch implementation of the integrative NMF:
-It includes functions to update W and H matrices, and to run the NMF algorithm 
-while integrating multiple views. 
+Integrative NMF is an NMF algorithm used to integrate multiple views of the data. 
+The method decomposes matrices V into multiple W matrices, 
+multiple H matrices and a common H matrix. This approach allows to
+identify common and specific patterns across multiple views of the data.
+
+
+This script includes the Pytorch implementation of the integrative NMF with
+functions to update W and H matrices while integrating multiple views. 
 Functions are:
     - run_iNMF: main function to run the integrative NMF algorithm
-    - iNMF_update_H: update H matrix
+    - iNMF_update_H: update H shared matrix
     - iNMF_update_Ws: update W matrices
     - iNMF_update_Hs: update H matrices for each view
     - iNMF_obj_eval: evaluate the objective function
@@ -28,7 +35,7 @@ Functions are:
 ##---------------------------------------------------------------------------##
 ##                               Update H                                    ##
 ##---------------------------------------------------------------------------##
-def iNMF_uptade_H(Xs, Ws, H, Hvs, Nviews):
+def iNMF_update_sharedH(Xs, Ws, H, Hvs, Nviews):
     num   = tf.reduce_sum([tf.matmul(Xs[i], Ws[i], transpose_b=True) for i in range(Nviews)], 0)
     den_K = []
     for i in range(Nviews):
@@ -43,7 +50,7 @@ def iNMF_uptade_H(Xs, Ws, H, Hvs, Nviews):
 ##---------------------------------------------------------------------------##
 ##                    Update view specficic Ws                               ##
 ##---------------------------------------------------------------------------##                        
-def iNMF_uptade_Ws(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
+def iNMF_update_Ws(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
     for i in range(Nviews):
         Ht     = tf.reduce_sum([H, Hvs[i]], 0)
         HtHt   = tf.matmul(Ht, Ht, transpose_a=True)
@@ -60,7 +67,7 @@ def iNMF_uptade_Ws(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
 ##---------------------------------------------------------------------------##
 ##                    Update view specficic Hs                               ##
 ##---------------------------------------------------------------------------##                        
-def iNMF_uptade_Hs(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
+def iNMF_update_viewH(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
     for i in range(Nviews):
         Ht     = tf.reduce_sum([H, tf.multiply((1 + lamb), Hvs[i])], 0)
         WW     = tf.matmul(Ws[i], Ws[i], transpose_b=True)
@@ -112,11 +119,23 @@ def inmf_max_exp(H, Hvs):
 ##---------------------------------------------------------------------------##
 ##                        define main function                               ##
 ##---------------------------------------------------------------------------##
-def iNMF_tensor_py(matrix_list, rank, n_initializations, iterations, Sp, 
-                   stop_threshold=40, lamb = 10, **kwargs):
+def iNMF_tensor_py(matrix_list, # instead of X as matrix
+                   rank, 
+                   n_initializations, 
+                   iterations, 
+                   Sp, 
+                   stop_threshold=40, 
+                   lamb = 10, 
+                   **kwargs):
+    
+    # Add timestamp of the run start
+    current_GMT = time.gmtime()
+    time_stamp = calendar.timegm(current_GMT)
+    
+    # Transpose matrices from the initial list
     matrix_list = [np.transpose(Xv) for Xv in matrix_list]
 
-    #K = len(matrix_list)
+    # Get number of views and number of samples
     Nviews = len(matrix_list)
     N = matrix_list[0].shape[0]
     Ms = [Xv.shape[1] for Xv in matrix_list]
@@ -126,38 +145,41 @@ def iNMF_tensor_py(matrix_list, rank, n_initializations, iterations, Sp,
     iter_to_conv = []
     W_eval = []
     
-    # X matrices to tensor constant
-    Xs = [tf.constant(matrix_list[i], name = ("X" + str(i)), dtype=tf.float32) for i in range(Nviews)]
+    # X matrices to constant from initial list
+    Xs = [torch.tensor(matrix_list[i], 
+                       name = ("X" + str(i)), 
+                       dtype=torch.float32) for i in range(Nviews)]
     
     ##-----------------------------------------------------------------------##
     ##                              N inits                                  ##
     ##-----------------------------------------------------------------------##
+    if seed is not None:
+      torch.manual_seed(seed)
+    
     # cycle through n initializations and choose best factorization
     for init_n in range(n_initializations):
-    
         ##-------------------------------------------------------------------##
         ##                     Initialize W matrices                         ##
         ##-------------------------------------------------------------------##
-        initializer = tf.random_uniform_initializer(minval=0, maxval=2)
-    
-        Ws = [tf.Variable(initializer(shape=[rank, Ms[i]]),
-                          name=("W" + str(i))) for i in range(Nviews)]    
+        Ws = [torch.empty(rank, Ms[i], 
+                          names = ("W" + str(i)),
+                          dtype=torch.float32).uniform_(0, 2) 
+              for i in range(Nviews)]
         ##-------------------------------------------------------------------##
-        ##                     Initialize H matrix                           ##
+        ##                  Initialize shared H matrix                       ##
         ##-------------------------------------------------------------------##    
-        H = tf.Variable(initializer(shape=[N, rank]), name="H")        
+        H = torch.empty(N, rank, dtype=torch.float32, 
+                        names="H") 
         ##-------------------------------------------------------------------##
         ##               Initialize view specific H matrices                 ##
         ##-------------------------------------------------------------------##
-        Hvs = [tf.Variable(initializer(shape=[N, rank]),
-                           name= ("Hview" + str(i))) for i in range(Nviews)]    
+        Hvs = [torch.empty(N, rank, dtype=torch.float32,
+                           names = ("Hview" + str(i))) for i in range(Nviews)]    
         ##-------------------------------------------------------------------##
         ##        Save initial max exposures in H matrices                   ##
         ##-------------------------------------------------------------------##
         oldExposures = inmf_max_exp(H, Hvs)
         const = 0       
-
-
 
         ##-------------------------------------------------------------------##
         ##                   Start matrix factorization                      ##
@@ -166,15 +188,15 @@ def iNMF_tensor_py(matrix_list, rank, n_initializations, iterations, Sp,
             ##---------------------------------------------------------------##
             ##                          Update H                             ##
             ##---------------------------------------------------------------##
-            H = iNMF_uptade_H(Xs, Ws, H, Hvs, Nviews)
+            H = iNMF_update_sharedH(Xs, Ws, H, Hvs, Nviews)
             ##---------------------------------------------------------------##
             ##                   Update view specficic Ws                    ##
             ##---------------------------------------------------------------##   
-            Ws = iNMF_uptade_Ws(Xs, Ws, H, Hvs, Nviews, lamb, Sp)
+            Ws = iNMF_update_Ws(Xs, Ws, H, Hvs, Nviews, lamb, Sp)
             ##---------------------------------------------------------------##
             ##                    Update view specficic Hs                   ##
             ##---------------------------------------------------------------##                        
-            Hvs = iNMF_uptade_Hs(Xs, Ws, H, Hvs, Nviews, lamb, Sp)
+            Hvs = iNMF_update_viewH(Xs, Ws, H, Hvs, Nviews, lamb, Sp)
 
     
             ##---------------------------------------------------------------##
@@ -182,12 +204,13 @@ def iNMF_tensor_py(matrix_list, rank, n_initializations, iterations, Sp,
             ##---------------------------------------------------------------##        
             newExposures = inmf_max_exp(H, Hvs)
     
-            if tf.reduce_all(tf.math.equal(oldExposures, newExposures)).__invert__():
+            if torch.all(torch.eq(oldExposures, newExposures)).__invert__():
                 oldExposures = newExposures
                 const = 0
             else:
                 const += 1
                 if const == stop_threshold:
+                    print(f"iNMF converged after {inner} iterations")
                     break
             
             #print("Best frob:", inmf_obj_eval(Xs, Ws, H, Hvs, Nviews, Sp, lamb).numpy())
@@ -216,7 +239,7 @@ def iNMF_tensor_py(matrix_list, rank, n_initializations, iterations, Sp,
         #        frobNorm_init = tf.reduce_sum(frobNorm_init)
         frobNorm.append(frobInit)
         iter_to_conv.append(inner+1)
-        W_eval.append(tf.concat(Ws, 1))
+        W_eval.append(torch.concat(Ws, 1))
         
         if frobInit < Best_frob :
             #print('is less')
@@ -238,5 +261,17 @@ def iNMF_tensor_py(matrix_list, rank, n_initializations, iterations, Sp,
 
     frobNorm = [i.numpy() for i in frobNorm]
     W_eval_num  = [i.numpy().T for i in W_eval]
+    
+    # Compile the results into a single NMF object
+    iNMF_outo = NMFobject(k = rank,
+                          NMF_type = 'basic',
+                          H = H_num, 
+                          Hviews = Hvs_num,
+                          W = Ws_num, 
+                          W_eval = W_eval_num,
+                          final_iterations = iter_to_conv, 
+                          frobenius = frobNorm,
+                          timestamp = time_stamp 
+                          )
 
-    return Ws_num, H_num, Hvs_num, iter_to_conv, frobNorm, W_eval_num
+    return iNMF_outo
