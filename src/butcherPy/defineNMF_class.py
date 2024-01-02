@@ -30,29 +30,16 @@ class NMFobject:
                  W = None, 
                  W_eval = None, 
                  final_iterations = None, 
-                 frobenius = None):
+                 frobenius = None,
+                 timestamp = None):
         self.k = k
         self.H = H
         self.W = W
         self.W_eval = W_eval
         self.final_iterations = final_iterations
         self.frobenius = frobenius
+        self.timestamp = timestamp
     
-    @ property
-    def define_signatures(self, 
-                          k = 'all', 
-                          exposure_threshold = 0.8):
-        """
-        Defines the k signatures from W matrix exposures
-        Input:
-            - k: selected rank (defaults as 'all')
-            - exposure_threshold: threshold for exposure values (from 0 to 1)
-            
-        Exposure threshold: from which normalised exposure value should
-        the observation be considered part of a signature at that rank.
-        (default is 0.8, lower values may result in observations being assigned 
-        to multiple signatures)
-        """
         
     
     @ property
@@ -83,6 +70,36 @@ class NMFobject:
             # Update the W matrix
             self.W = W_norm
         
+    
+    @ property
+    def define_signatures(self, 
+                          k = 'all', 
+                          exposure_threshold = 0.8):
+        """
+        Defines the k signatures from W matrix exposures
+        Input:
+            - k: selected rank (defaults as 'all')
+            - exposure_threshold: threshold for exposure values (from 0 to 1)
+            
+        Exposure threshold: from which normalised exposure value should
+        the observation be considered part of a signature at that rank.
+        (default is 0.8, lower values may result in observations being assigned 
+        to multiple signatures)
+        """
+        
+        # Initialise the signatures
+        signatures = []
+        
+        # Verifies if the W matrix was already normalised
+        # if it was not, normalise the W matrix
+        normW = normalise_W(self.W)
+        
+        # Assign the observations to the signatures
+        for i in range(len(self.W)):
+            signatures.append(np.argmax(self.W[i], axis = 1))
+            
+        # Update the signatures
+        self.signatures = signatures
     
     
     @ property
@@ -120,8 +137,10 @@ class NMFobject:
             amari_distance =  (np.sum(max_rows) + np.sum(max_cols)) / (2.0 * dotp.shape[0])
             amari.append(amari_distance)
             
-            # Calculate the silhouette width
+            # Calculate the silhouette width between the signatures
             #silhouette.append(silhouette_width(self.W_eval[i], self.H[i]))
+            
+            
             
             # Calculate the cophenetic correlation coefficient
             #cophenetic.append(cophenetic_correlation(self.W_eval[i], self.H[i]))
