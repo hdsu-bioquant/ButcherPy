@@ -93,7 +93,6 @@ def inmf_obj_eval(Xs, Ws, H, Hvs, Nviews, Sp, lamb):
     sparse_c = []
     for i in range(Nviews):
         Ht = torch.add(H, Hvs[i])
-        #frob_c.append(tf.linalg.norm(Xs[i] - tf.matmul(Ht, Ws[i])) / tf.linalg.norm(Xs[i]))
         frob_ci = torch.linalg.norm(Xs[i] - torch.matmul(Ht, Ws[i]))
         frob_c.append(torch.square(frob_ci))
         
@@ -224,9 +223,6 @@ def iNMF_tensor_py(matrix_list, # instead of X as matrix
             Best_Ws   = Ws
             Best_Hvs   = Hvs
             
-        #Hvs = [tf.Variable(initializer(shape=[N, rank]),
-        #                   name= ("Hview" + str(i))) for i in range(K)]
-        
         ##-------------------------------------------------------------------##
         ##         Evaluate if best factorization initialization             ##
         ##-------------------------------------------------------------------##
