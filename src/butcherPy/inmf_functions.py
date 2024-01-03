@@ -26,7 +26,7 @@ Functions are:
     - run_iNMF: main function to run the integrative NMF algorithm
     - iNMF_update_H: update H shared matrix
     - iNMF_update_Ws: update W matrices
-    - iNMF_update_Hs: update H matrices for each view
+    - iNMF_update_Hs: update H view-specific matrices
     - iNMF_obj_eval: evaluate the objective function
 
 """
@@ -36,15 +36,15 @@ Functions are:
 ##                               Update H                                    ##
 ##---------------------------------------------------------------------------##
 def iNMF_update_sharedH(Xs, Ws, H, Hvs, Nviews):
-    num   = tf.reduce_sum([tf.matmul(Xs[i], Ws[i], transpose_b=True) for i in range(Nviews)], 0)
+    num   = torch.sum([torch.matmul(Xs[i], Ws[i].t()) for i in range(Nviews)], 0)
     den_K = []
     for i in range(Nviews):
-        Ht = tf.reduce_sum([H, Hvs[i]], 0)
-        WW = tf.matmul(Ws[i], Ws[i], transpose_b=True)
-        den_K.append(tf.matmul(Ht, WW))
-    den    = tf.reduce_sum(den_K, 0)
-    H_new  = tf.multiply(H,  tf.divide(num, den))
-    H_new  = tf.where(tf.math.is_nan(H_new), tf.zeros_like(H_new), H_new)
+        Ht = torch.sum([H, Hvs[i]], 0)
+        WW = torch.matmul(Ws[i], Ws[i].t())
+        den_K.append(torch.matmul(Ht, WW))
+    den    = torch.sum(den_K, 0)
+    H_new  = torch.mul(H,  torch.div(num, den))
+    H_new  = torch.where(torch.isnan(H_new), torch.zeros_like(H_new), H_new)
     return H_new
 
 ##---------------------------------------------------------------------------##
@@ -52,15 +52,15 @@ def iNMF_update_sharedH(Xs, Ws, H, Hvs, Nviews):
 ##---------------------------------------------------------------------------##                        
 def iNMF_update_Ws(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
     for i in range(Nviews):
-        Ht     = tf.reduce_sum([H, Hvs[i]], 0)
-        HtHt   = tf.matmul(Ht, Ht, transpose_a=True)
+        Ht     = torch.sum([H, Hvs[i]], 0)
+        HtHt   = torch.matmul(Ht.t(), Ht)
     
-        HvHv   = tf.matmul(Hvs[i], Hvs[i], transpose_a=True)
-        HsHs   = tf.reduce_sum([HtHt, tf.multiply(lamb,  HvHv)], 0)
-        den    = tf.matmul(HsHs, Ws[i]) + Sp
-        HX_den = tf.divide(tf.matmul(Ht, Xs[i], transpose_a=True), den)
-        W_new  = tf.multiply(Ws[i], HX_den)
-        W_new  = tf.where(tf.math.is_nan(W_new), tf.zeros_like(W_new), W_new)
+        HvHv   = torch.matmul(Hvs[i].t(), Hvs[i])
+        HsHs   = torch.sum([HtHt, torch.mul(lamb,  HvHv)], 0)
+        den    = torch.matmul(HsHs, Ws[i]) + Sp
+        HX_den = torch.div(torch.matmul(Ht, Xs[i], transpose_a=True), den)
+        W_new  = torch.mul(Ws[i], HX_den)
+        W_new  = torch.where(torch.isnan(W_new), torch.zeros_like(W_new), W_new)
         Ws[i].assign(W_new)
     return Ws
 
@@ -69,13 +69,13 @@ def iNMF_update_Ws(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
 ##---------------------------------------------------------------------------##                        
 def iNMF_update_viewH(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
     for i in range(Nviews):
-        Ht     = tf.reduce_sum([H, tf.multiply((1 + lamb), Hvs[i])], 0)
-        WW     = tf.matmul(Ws[i], Ws[i], transpose_b=True)
-        den    = tf.matmul(Ht, WW)
-        XW     = tf.matmul(Xs[i], Ws[i], transpose_b=True)
-        XW_den = tf.divide(XW, den)
-        Hv_new = tf.multiply(Hvs[i], XW_den)
-        Hv_new = tf.where(tf.math.is_nan(Hv_new), tf.zeros_like(Hv_new), Hv_new)
+        Ht     = torch.sum([H, torch.mul((1 + lamb), Hvs[i])], 0)
+        WW     = torch.matmul(Ws[i], Ws[i].t())
+        den    = torch.matmul(Ht, WW)
+        XW     = torch.matmul(Xs[i], Ws[i].t())
+        XW_den = torch.div(XW, den)
+        Hv_new = torch.mul(Hvs[i], XW_den)
+        Hv_new = torch.where(torch.isnan(Hv_new), torch.zeros_like(Hv_new), Hv_new)
         Hvs[i].assign(Hv_new)
     return Hvs
 
@@ -92,19 +92,19 @@ def inmf_obj_eval(Xs, Ws, H, Hvs, Nviews, Sp, lamb):
     pen_c    = []
     sparse_c = []
     for i in range(Nviews):
-        Ht = tf.add(H, Hvs[i])
+        Ht = torch.add(H, Hvs[i])
         #frob_c.append(tf.linalg.norm(Xs[i] - tf.matmul(Ht, Ws[i])) / tf.linalg.norm(Xs[i]))
-        frob_ci = tf.linalg.norm(Xs[i] - tf.matmul(Ht, Ws[i]))
-        frob_c.append(tf.math.square(frob_ci))
+        frob_ci = torch.linalg.norm(Xs[i] - torch.matmul(Ht, Ws[i]))
+        frob_c.append(torch.square(frob_ci))
         
-        pen_ci = tf.math.square(tf.linalg.norm(tf.matmul(Hvs[i], Ws[i])))
+        pen_ci = torch.square(torch.linalg.norm(torch.matmul(Hvs[i], Ws[i])))
         pen_c.append(lamb * pen_ci)
         
-        sparse_c.append(Sp *tf.reduce_sum(Ws[i]))
+        sparse_c.append(Sp * torch.sum(Ws[i]))
         
-    frob_c   = tf.reduce_sum(frob_c)
-    pen_c    = tf.reduce_sum(pen_c)
-    sparse_c = tf.reduce_sum(sparse_c)
+    frob_c   = torch.sum(frob_c)
+    pen_c    = torch.sum(pen_c)
+    sparse_c = torch.sum(sparse_c)
     #return frob_c 
     return frob_c + pen_c + sparse_c
 
@@ -112,8 +112,8 @@ def inmf_obj_eval(Xs, Ws, H, Hvs, Nviews, Sp, lamb):
 ##                   define objective function                               ##
 ##---------------------------------------------------------------------------##
 def inmf_max_exp(H, Hvs):
-    Hts = [tf.add(H, Hv) for Hv in Hvs]
-    max_exposures = tf.concat([tf.math.argmax(Ht, axis=1) for Ht in Hts], 0)
+    Hts = [torch.add(H, Hv) for Hv in Hvs]
+    max_exposures = torch.concat([torch.argmax(Ht, axis=1) for Ht in Hts], 0)
     return max_exposures 
 
 ##---------------------------------------------------------------------------##
