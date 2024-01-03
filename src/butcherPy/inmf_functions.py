@@ -260,9 +260,9 @@ def iNMF_tensor_py(matrix_list, # instead of X as matrix
     
     # Compile the results into a single NMF object
     iNMF_outo = NMFobject(k = rank,
-                          NMF_type = 'basic',
+                          NMF_type = 'integrative',
                           H = H_num, 
-                          Hviews = Hvs_num,
+                          Hviews = Hvs_num, # only for iNMF
                           W = Ws_num, 
                           W_eval = W_eval_num,
                           final_iterations = iter_to_conv, 
