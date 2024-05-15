@@ -178,6 +178,33 @@ def run_NMF(matrix,
     return NMF_out_o
 
 
+# Define the NMF_tensor_py function
+def multiple_rank_NMF(matrix, 
+            ranks, # list of ks
+            n_initializations, 
+            iterations, 
+            seed, 
+            stop_threshold=40, 
+            nthreads=0, 
+            **kwargs):
+    
+    """
+    Iteratively runs NMF for multiple different ranks
+      matrix: initial V matrix
+      ranks: factorisation ranks (k)
+      n_initializations: number of initializations to run NMF
+      iterations: number of iterations to run NMF for each initialization
+      seed: random seed selected
+      stop_threshold: when to stop the iterations after convergence
+      nthreads: apply multi-threading if your system supports it
+    """
+
+    NMF_result = []
+    for k in ranks:
+        NMF_result.append(run_NMF(matrix, k, n_initializations, iterations, seed, stop_threshold, nthreads, **kwargs))
+
+    return NMF_result
+
 # TEST
 np.random.seed(123)
 test_mat = np.random.rand(1000,6)
