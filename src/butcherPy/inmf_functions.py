@@ -36,13 +36,14 @@ Functions are:
 ##                               Update H                                    ##
 ##---------------------------------------------------------------------------##
 def iNMF_update_sharedH(Xs, Ws, H, Hvs, Nviews):
-    num   = torch.sum([torch.matmul(Xs[i], Ws[i].t()) for i in range(Nviews)], 0)
+    #num   = torch.sum([torch.matmul(Xs[i], Ws[i].t()) for i in range(Nviews)], 0)
+    num = torch.stack([torch.matmul(Xs[i], Ws[i].t()) for i in range(Nviews)]).sum(dim=0)
     den_K = []
     for i in range(Nviews):
-        Ht = torch.sum([H, Hvs[i]], 0)
+        Ht = torch.stack([H, Hvs[i]]).sum(dim=0)
         WW = torch.matmul(Ws[i], Ws[i].t())
         den_K.append(torch.matmul(Ht, WW))
-    den    = torch.sum(den_K, 0)
+    den    = torch.stack(den_K).sum(dim=0)
     H_new  = torch.mul(H,  torch.div(num, den))
     H_new  = torch.where(torch.isnan(H_new), torch.zeros_like(H_new), H_new)
     return H_new
@@ -52,31 +53,31 @@ def iNMF_update_sharedH(Xs, Ws, H, Hvs, Nviews):
 ##---------------------------------------------------------------------------##                        
 def iNMF_update_Ws(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
     for i in range(Nviews):
-        Ht     = torch.sum([H, Hvs[i]], 0)
+        Ht     = torch.stack([H, Hvs[i]]).sum(dim=0)
         HtHt   = torch.matmul(Ht.t(), Ht)
     
         HvHv   = torch.matmul(Hvs[i].t(), Hvs[i])
-        HsHs   = torch.sum([HtHt, torch.mul(lamb,  HvHv)], 0)
+        HsHs   = torch.stack([HtHt, torch.mul(lamb,  HvHv)]).sum(dim=0)
         den    = torch.matmul(HsHs, Ws[i]) + Sp
-        HX_den = torch.div(torch.matmul(Ht, Xs[i], transpose_a=True), den)
+        HX_den = torch.div(torch.matmul(Ht.t(), Xs[i]), den)
         W_new  = torch.mul(Ws[i], HX_den)
         W_new  = torch.where(torch.isnan(W_new), torch.zeros_like(W_new), W_new)
-        Ws[i].assign(W_new)
+        Ws[i] = W_new
     return Ws
 
 ##---------------------------------------------------------------------------##
 ##                    Update view specficic Hs                               ##
 ##---------------------------------------------------------------------------##                        
-def iNMF_update_viewH(Xs, Ws, H, Hvs, Nviews, lamb, Sp):
+def iNMF_update_viewH(Xs, Ws, H, Hvs, Nviews, lamb):
     for i in range(Nviews):
-        Ht     = torch.sum([H, torch.mul((1 + lamb), Hvs[i])], 0)
+        Ht     = torch.stack([H, torch.mul((1 + lamb), Hvs[i])]).sum(dim=0)
         WW     = torch.matmul(Ws[i], Ws[i].t())
         den    = torch.matmul(Ht, WW)
         XW     = torch.matmul(Xs[i], Ws[i].t())
         XW_den = torch.div(XW, den)
         Hv_new = torch.mul(Hvs[i], XW_den)
         Hv_new = torch.where(torch.isnan(Hv_new), torch.zeros_like(Hv_new), Hv_new)
-        Hvs[i].assign(Hv_new)
+        Hvs[i] = Hv_new
     return Hvs
 
 ##---------------------------------------------------------------------------##
@@ -101,9 +102,9 @@ def inmf_obj_eval(Xs, Ws, H, Hvs, Nviews, Sp, lamb):
         
         sparse_c.append(Sp * torch.sum(Ws[i]))
         
-    frob_c   = torch.sum(frob_c)
-    pen_c    = torch.sum(pen_c)
-    sparse_c = torch.sum(sparse_c)
+    frob_c   = torch.stack(frob_c).sum(dim=0)
+    pen_c    = torch.stack(pen_c).sum(dim=0)
+    sparse_c = torch.stack(sparse_c).sum(dim=0)
     #return frob_c 
     return frob_c + pen_c + sparse_c
 
@@ -121,7 +122,8 @@ def inmf_max_exp(H, Hvs):
 def iNMF_tensor_py(matrix_list, # instead of X as matrix
                    rank, 
                    n_initializations, 
-                   iterations, 
+                   iterations,
+                   seed,
                    Sp, 
                    stop_threshold=40, 
                    lamb = 10, 
@@ -146,14 +148,14 @@ def iNMF_tensor_py(matrix_list, # instead of X as matrix
     
     # X matrices to constant from initial list
     Xs = [torch.tensor(matrix_list[i], 
-                       name = ("X" + str(i)), 
+                       #name = ("X" + str(i)), 
                        dtype=torch.float32) for i in range(Nviews)]
     
     ##-----------------------------------------------------------------------##
     ##                              N inits                                  ##
     ##-----------------------------------------------------------------------##
     if seed is not None:
-      torch.manual_seed(seed)
+        torch.manual_seed(seed)
     
     # cycle through n initializations and choose best factorization
     for init_n in range(n_initializations):
@@ -161,19 +163,20 @@ def iNMF_tensor_py(matrix_list, # instead of X as matrix
         ##                     Initialize W matrices                         ##
         ##-------------------------------------------------------------------##
         Ws = [torch.empty(rank, Ms[i], 
-                          names = ("W" + str(i)),
+                          #names = ("W" + str(i)),
                           dtype=torch.float32).uniform_(0, 2) 
               for i in range(Nviews)]
         ##-------------------------------------------------------------------##
         ##                  Initialize shared H matrix                       ##
         ##-------------------------------------------------------------------##    
         H = torch.empty(N, rank, dtype=torch.float32, 
-                        names="H") 
+                        )#names="H") 
         ##-------------------------------------------------------------------##
         ##               Initialize view specific H matrices                 ##
         ##-------------------------------------------------------------------##
         Hvs = [torch.empty(N, rank, dtype=torch.float32,
-                           names = ("Hview" + str(i))) for i in range(Nviews)]    
+                           #names = ("Hview" + str(i))
+                           ) for i in range(Nviews)]    
         ##-------------------------------------------------------------------##
         ##        Save initial max exposures in H matrices                   ##
         ##-------------------------------------------------------------------##
@@ -195,7 +198,7 @@ def iNMF_tensor_py(matrix_list, # instead of X as matrix
             ##---------------------------------------------------------------##
             ##                    Update view specficic Hs                   ##
             ##---------------------------------------------------------------##                        
-            Hvs = iNMF_update_viewH(Xs, Ws, H, Hvs, Nviews, lamb, Sp)
+            Hvs = iNMF_update_viewH(Xs, Ws, H, Hvs, Nviews, lamb)
 
     
             ##---------------------------------------------------------------##
@@ -271,3 +274,18 @@ def iNMF_tensor_py(matrix_list, # instead of X as matrix
                           )
 
     return iNMF_outo
+
+
+np.random.seed(123)
+# matrix with 1000 rows corresponding to 1000 genes and 6 columns corresponding to samples
+test_mat_list = [np.random.rand(1000,6), np.random.rand(1000,6)]
+# want to get a W matrix with 3 columns corresponding to expression patterns/signatures
+test_rank = 3
+tn_initializations = 10
+titerations = 100
+tseed = 124
+tSp = 0
+tstop_threshold = 40
+tlamb = 10
+
+inmf_test = iNMF_tensor_py(test_mat_list, test_rank, tn_initializations, titerations, tseed, tSp, tstop_threshold, tlamb) 
