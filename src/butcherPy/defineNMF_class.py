@@ -73,7 +73,7 @@ class NMFobject:
             self.W = W_norm
         
     
-    @ property
+    #@ property
     def define_signatures(self, 
                           k = 'all', 
                           exposure_threshold = 0.8):
@@ -94,16 +94,33 @@ class NMFobject:
         
         # Verifies if the W matrix was already normalised
         # if it was not, normalise the W matrix
-        normW = normalise_W(self.W)
-        
-        # Assign the observations to the signatures
-        for i in range(len(self.W)):
-            signatures.append(np.argmax(self.W[i], axis = 1))
+        self.normalise_W#(self.W)
+
+        #### IF STATEMENT ADDED BY ME
+        # Select the k signatures
+        if k != "all":
+            W_sign = [[row[i] for i in k] for row in self.W]
+            for i in range(len(W_sign)):
+                if np.max(W_sign[i], axis = 0) >= exposure_threshold:
+                    signatures.append(np.argmax(W_sign[i], axis = 0))
+                else:
+                    signatures.append(None)
+        else:
+            #### THIS WAS ORIGINAL CODE
+            # Assign the observations to the signatures
+            for i in range(len(self.W)):
+                if np.max(W_sign[i], axis = 0) >= exposure_threshold:
+                    signatures.append(np.argmax(self.W[i], axis = 0))
+                else:
+                    signatures.append(None)
             
         # Update the signatures
         self.signatures = signatures
     
-    
+    #def compute_SignatureFeatures(self):
+
+
+
     @ property
     def calc_rank_selection_metrics(self, 
                                     metric = 'all'):
@@ -128,16 +145,16 @@ class NMFobject:
             frobenius.append(np.linalg.norm(self.W_eval[i] - self.H[i]))
             
             ### Calculate the amari distance
-            dotp = np.abs(np.dot(self.W_eval[i], np.linalg.inv(self.H[i])))
+            #dotp = np.abs(np.dot(self.W_eval[i], np.linalg.inv(self.H[i])))
             # Compute the sum over each row and each column
-            sum_rows = np.sum(dotp, axis=0)
-            sum_cols = np.sum(dotp, axis=1)
+            #sum_rows = np.sum(dotp, axis=0)
+            #sum_cols = np.sum(dotp, axis=1)
             # Compute the maximum value over each row and each column
-            max_rows = np.max(dotp / sum_rows, axis=0)
-            max_cols = np.max(dotp / sum_cols, axis=1)
+            #max_rows = np.max(dotp / sum_rows, axis=0)
+            #max_cols = np.max(dotp / sum_cols, axis=1)
             # Compute the distance            
-            amari_distance =  (np.sum(max_rows) + np.sum(max_cols)) / (2.0 * dotp.shape[0])
-            amari.append(amari_distance)
+            #amari_distance =  (np.sum(max_rows) + np.sum(max_cols)) / (2.0 * dotp.shape[0])
+            #amari.append(amari_distance)
             
             # Calculate the silhouette width between the signatures
             #silhouette.append(silhouette_width(self.W_eval[i], self.H[i]))

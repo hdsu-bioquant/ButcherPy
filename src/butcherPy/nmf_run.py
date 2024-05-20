@@ -14,7 +14,8 @@ import torch
 import numpy as np
 import calendar
 import time
-from defineNMF_class import NMFobject
+#from defineNMF_class import NMFobject
+from multiplerun_NMF_class import multipleNMFobject
 
 
 # Define the NMF_tensor_py function
@@ -49,7 +50,7 @@ def run_NMF(matrix,
     m = matrix.shape[1] # number of columns    
     # Creates a constant tensor object from the matrix
     X = torch.tensor(matrix, dtype=torch.float32)
-    print(f"Initial matrix with {n} rows and {m} columns converted to tensor object.")
+    #print(f"Initial matrix with {n} rows and {m} columns converted to tensor object.")
     
     # Initialization Metrics 
     frobNorm = []
@@ -73,7 +74,7 @@ def run_NMF(matrix,
         # Initialize uniform distribution (0 to 1)
         H = torch.empty(rank, m).uniform_(0, 1)
         W = torch.empty(n, rank).uniform_(0, 1)
-        print(H.data[0][1])
+        #print(H.data[0][1])
     
         ##-------------------------------------------------------------------##
         ##                     Initialize frob error                         ##
@@ -127,7 +128,7 @@ def run_NMF(matrix,
                 const += 1
                 #print(f'new eval diff, {const}')
                 if const == stop_threshold:
-                    print(f"NMF converged after {inner} iterations")
+                    #print(f"NMF converged after {inner} iterations")
                     break
         
         ##-------------------------------------------------------------------##
@@ -136,7 +137,7 @@ def run_NMF(matrix,
         frobInit = torch.linalg.norm(X - torch.matmul(W, H)) / torch.linalg.norm(X)
         
         # Append to list of initialization metrics
-        print("Appending results to the list of metrics.")
+        #print("Appending results to the list of metrics.")
         frobNorm.append(frobInit)
         iter_to_conv.append(inner+1)
         W_eval.append(W)
@@ -154,7 +155,7 @@ def run_NMF(matrix,
     ##-----------------------------------------------------------------------##
     ##             Convert to numpy, transpose and return                    ##
     ##-----------------------------------------------------------------------##
-    print("Preparing results to output.")
+    #print("Preparing results to output.")
     W_num  = Best_W.numpy()
     H_num  = Best_H.numpy()
 
@@ -162,23 +163,23 @@ def run_NMF(matrix,
     W_eval_num  = [i.numpy() for i in W_eval]
     
     # Compile the results into a single NMF object
-    NMF_out_o = NMFobject(k = rank,
-                          NMF_type = 'basic',
-                          H = H_num, 
-                          W = W_num, 
-                          W_eval = W_eval_num,
-                          final_iterations = iter_to_conv, 
-                          frobenius = frobNorm,
-                          timestamp = time_stamp 
-                          )
+    #NMF_out_o = NMFobject(k = rank,
+    #                      NMF_type = 'basic',
+    #                      H = H_num, 
+    #                      W = W_num, 
+    #                      W_eval = W_eval_num,
+    #                      final_iterations = iter_to_conv, 
+    #                      frobenius = frobNorm,
+    #                      timestamp = time_stamp 
+    #                      )
     
-    print("Completed NMF run and compiled results into an NMF object.")
+    #print("Completed NMF run and compiled results into an NMF object.")
     # Return the NMF object specific to this run
     # return W_num, H_num, iter_to_conv, frobNorm, W_eval_num
-    return NMF_out_o
+    return rank, H_num, W_num, W_eval_num, iter_to_conv, frobNorm, time_stamp
 
 
-# Define the NMF_tensor_py function
+# Run the basic NMF algorithm for multiple runs
 def multiple_rank_NMF(matrix, 
             ranks, # list of ks
             n_initializations, 
@@ -199,11 +200,37 @@ def multiple_rank_NMF(matrix,
       nthreads: apply multi-threading if your system supports it
     """
 
+    input_matrix = {"gene_expression": matrix, "genes": "rows", "samples": "columns", "dim": matrix.shape}
     NMF_result = []
+    run_settings = []
     for k in ranks:
-        NMF_result.append(run_NMF(matrix, k, n_initializations, iterations, seed, stop_threshold, nthreads, **kwargs))
+        print("Factorization rank: ", k)
+        run_settings.append({"rank": k,
+                            "n_initializations": n_initializations,
+                            "iterations": iterations,
+                            "seed": seed,
+                            "stop_threshold": stop_threshold,
+                            "nthreads": nthreads,
+                            "kwargs": kwargs})
+        
+        NMF_result.append(dict(zip(['rank', 'H', 'W', 'W_eval_num', 'final_iterations', 'frobenius', 'time_stamp'], run_NMF(matrix, k, n_initializations, iterations, seed, stop_threshold, nthreads, **kwargs))))
+        
+        iters = list(map(lambda res: res['final_iterations'], NMF_result))[-1]
+        print("NMF converges after {} iterations".format(', '.join(map(str, iters))))
 
-    return NMF_result
+    Ws = list(map(lambda res: res['W'], NMF_result))
+    Hs = list(map(lambda res: res['H'], NMF_result))
+    frob_errors = list(map(lambda res: res['frobenius'], NMF_result))
+
+    NMF = multipleNMFobject(input_matrix,
+                            run_settings,
+                            ranks,
+                            Ws,
+                            Hs,
+                            frob_errors,
+                            'basic')
+    
+    return NMF
 
 # TEST
 np.random.seed(123)
@@ -217,7 +244,7 @@ tnthreads = 1
 
 nmf_test = run_NMF(test_mat, test_rank, tn_initializations, titerations, tseed, tstop_threshold, tnthreads)
 
-import pickle
-pickle.dump(nmf_test, open("nmf_teste2.p", "wb")) 
+#import pickle
+#pickle.dump(nmf_test, open("nmf_teste2.p", "wb")) 
 
 
