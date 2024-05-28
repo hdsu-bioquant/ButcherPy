@@ -5,7 +5,7 @@
 Contains the main function (run_NMF) to run basic NMF in Pytorch
 
 Created by Andres Quintero  
-Reimplemented for Pytorch by Ana Luisa Costa
+Reimplemented for Pytorch by Ana Luisa Costa and Leonie Boland
 """
 
 # Dependencies
@@ -14,7 +14,6 @@ import torch
 import numpy as np
 import calendar
 import time
-#from defineNMF_class import NMFobject
 from multiplerun_NMF_class import multipleNMFobject
 
 
@@ -29,7 +28,7 @@ def run_NMF(matrix,
             **kwargs):
     
     """
-    Iteratively runs NMF to choose best factorisation rank for input matrix V
+    Iteratively runs NMF for one given rank with different initializations for input matrix V
       matrix: initial V matrix
       rank: factorisation rank (k)
       n_initializations: number of initializations to run NMF
@@ -126,7 +125,6 @@ def run_NMF(matrix,
                 const = 0
             else:
                 const += 1
-                #print(f'new eval diff, {const}')
                 if const == stop_threshold:
                     #print(f"NMF converged after {inner} iterations")
                     break
@@ -137,13 +135,11 @@ def run_NMF(matrix,
         frobInit = torch.linalg.norm(X - torch.matmul(W, H)) / torch.linalg.norm(X)
         
         # Append to list of initialization metrics
-        #print("Appending results to the list of metrics.")
         frobNorm.append(frobInit)
         iter_to_conv.append(inner+1)
         W_eval.append(W)
         
         if frobInit < Best_frob :
-            #print('is less')
             Best_frob = frobInit
             Best_H    = H
             Best_W    = W
@@ -155,31 +151,25 @@ def run_NMF(matrix,
     ##-----------------------------------------------------------------------##
     ##             Convert to numpy, transpose and return                    ##
     ##-----------------------------------------------------------------------##
-    #print("Preparing results to output.")
+    
     W_num  = Best_W.numpy()
     H_num  = Best_H.numpy()
 
     frobNorm    = [i.numpy() for i in frobNorm]
     W_eval_num  = [i.numpy() for i in W_eval]
-    
-    # Compile the results into a single NMF object
-    #NMF_out_o = NMFobject(k = rank,
-    #                      NMF_type = 'basic',
-    #                      H = H_num, 
-    #                      W = W_num, 
-    #                      W_eval = W_eval_num,
-    #                      final_iterations = iter_to_conv, 
-    #                      frobenius = frobNorm,
-    #                      timestamp = time_stamp 
-    #                      )
-    
-    #print("Completed NMF run and compiled results into an NMF object.")
-    # Return the NMF object specific to this run
-    # return W_num, H_num, iter_to_conv, frobNorm, W_eval_num
+        
+    # Return the relevant values for the NMF run with the given rank
+    # rank: the factorisation rank
+    # H_num: the exposure (H) matrix corresponding to the best NMF run
+    # W_num: the signature (W) matrix corresponding to the best NMF run
+    # W_eval_num: the signature (W) matrix corresponding to the best NMF run per initialization
+    # iter_to_conv: the amount of iterations needed to get convergence for each initialization
+    # frobNorm: the frobenius norm for each initialization at the end of the iterations (or after convergence)
+    # time_stamp: start of NMF algorithm
     return rank, H_num, W_num, W_eval_num, iter_to_conv, frobNorm, time_stamp
 
 
-# Run the basic NMF algorithm for multiple runs
+# Run the basic NMF algorithm for multiple factorisation ranks
 def multiple_rank_NMF(matrix, 
             ranks, # list of ks
             n_initializations, 
@@ -190,7 +180,7 @@ def multiple_rank_NMF(matrix,
             **kwargs):
     
     """
-    Iteratively runs NMF for multiple different ranks
+    Iteratively runs NMF for multiple different factorisation ranks
       matrix: initial V matrix
       ranks: factorisation ranks (k)
       n_initializations: number of initializations to run NMF
@@ -200,9 +190,13 @@ def multiple_rank_NMF(matrix,
       nthreads: apply multi-threading if your system supports it
     """
 
+    # Save the input matrix and a few properties in a dictionary
     input_matrix = {"gene_expression": matrix, "genes": "rows", "samples": "columns", "dim": matrix.shape}
+
     NMF_result = []
     run_settings = []
+
+    # Call the run_NMF function for each rank and save the results
     for k in ranks:
         print("Factorization rank: ", k)
         run_settings.append({"rank": k,
@@ -216,35 +210,24 @@ def multiple_rank_NMF(matrix,
         NMF_result.append(dict(zip(['rank', 'H', 'W', 'W_eval_num', 'final_iterations', 'frobenius', 'time_stamp'], run_NMF(matrix, k, n_initializations, iterations, seed, stop_threshold, nthreads, **kwargs))))
         
         iters = list(map(lambda res: res['final_iterations'], NMF_result))[-1]
-        print("NMF converges after {} iterations".format(', '.join(map(str, iters))))
+        print("NMF converges after {} iterations for the different initializations.".format(', '.join(map(str, iters))))
 
+    # Extract the different values from all results from the different factorisation rank NMF runs
     Ws = list(map(lambda res: res['W'], NMF_result))
     Hs = list(map(lambda res: res['H'], NMF_result))
     frob_errors = list(map(lambda res: res['frobenius'], NMF_result))
+    W_evals = list(map(lambda res: res['W_eval_num'], NMF_result))
 
+    # Save the runs as a NMF object
     NMF = multipleNMFobject(input_matrix,
                             run_settings,
                             ranks,
                             Ws,
                             Hs,
                             frob_errors,
+                            W_evals,
                             'basic')
     
     return NMF
-
-# TEST
-np.random.seed(123)
-test_mat = np.random.rand(1000,6)
-test_rank = 3
-tn_initializations = 10
-titerations = 100
-tseed = 123
-tstop_threshold = 40
-tnthreads = 1
-
-nmf_test = run_NMF(test_mat, test_rank, tn_initializations, titerations, tseed, tstop_threshold, tnthreads)
-
-#import pickle
-#pickle.dump(nmf_test, open("nmf_teste2.p", "wb")) 
 
 
