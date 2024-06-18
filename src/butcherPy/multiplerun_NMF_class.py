@@ -390,10 +390,14 @@ class multipleNMFobject:
         OptKs = [self.OptKStats[i] for i in intersection]
         OptKs = [OptK["rank"] for OptK in OptKs]
 
-        if len(OptKs) == 0:
-            print("No optimal K could be determined from the Optimal K stat.")
-        
         self.OptK = OptKs
+
+        if len(self.OptK) == 1:
+            print("The optimal factorisation rank from the given ranks is ", self.OptK[0])
+        elif len(OptKs) == 0:
+            print("No optimal K could be determined from the Optimal K stat.")
+        else:
+            print("The optimal factorisation rank from the given ranks are ", self.OptK)
         
         return OptKs
 
@@ -500,7 +504,7 @@ class multipleNMFobject:
 
         return self.feature_contributions
 
-    def heatmap(self):
+    def heatmap(self, path):
 
         sig_df = self.feature_contributions
 
@@ -518,12 +522,11 @@ class multipleNMFobject:
                 for j in range(n):
                     distance_matrix[i, j] = jaccardDistance(gene_sets[i], gene_sets[j])
 
-            #plt.set_cmap('plasma')
             sns.heatmap(distance_matrix, annot=True, xticklabels=sig_df.keys(), yticklabels=sig_df.keys())
             plt.yticks(rotation=0)
             plt.title("Jaccard Distance Heatmap")
             plt.show()
-            plt.savefig("SignatureComparison.png")
+            plt.savefig(path)
             plt.close()
         else:
             print("The feature contribution to the signatures haven't been computed yet, please use WcomputeFeatureStats() to do so.")
