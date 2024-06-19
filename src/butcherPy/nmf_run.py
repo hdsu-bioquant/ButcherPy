@@ -14,7 +14,7 @@ import torch
 import numpy as np
 import calendar
 import time
-from multiplerun_NMF_class import multipleNMFobject
+from src.butcherPy.multiplerun_NMF_class import multipleNMFobject
 
 
 # Define the NMF_tensor_py function

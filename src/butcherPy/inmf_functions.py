@@ -7,7 +7,7 @@ import os
 import torch
 import calendar
 import time
-from defineNMF_class import NMFobject
+from src.butcherPy.defineNMF_class import NMFobject
 
 
 """
