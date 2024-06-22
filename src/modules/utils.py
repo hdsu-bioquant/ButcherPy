@@ -26,6 +26,3 @@ def setup_rds(path):
         print("The setup of the gene expression matrix failed. The rds file seems not to save valid options, like sparse or dense matrics or experiments.")
 
     return mat
-
-path_to_rds = "../../../../bq_lboland/data/GSE_bpd/GSE53987_2.rds"
-gene_matrix = setup_rds(path_to_rds)
