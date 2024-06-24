@@ -112,11 +112,11 @@ class multipleNMFobject:
         """
 
         index = []
+        found_rank = []
         if ranks=="all":
             index = list(range(len(self.ranks)))
         else:
             # If ranks are specified (as a list) search the corresponding indices of the runs
-            found_rank = []
             for i, settings in enumerate(self.NMF_run_settings):
                 if settings["rank"] in ranks:
                     index.append(i)
@@ -124,7 +124,7 @@ class multipleNMFobject:
         
         if len(index)==0:
             print("No NMF runs have been performed with the indicated ranks, try one of {}".format(', '.join(map(str, self.ranks))))
-        elif len(index)!=len(ranks):
+        elif ranks != "all" and len(index)!=len(ranks):
             print("Not for all ranks there exist a H matrix, only ranks {} were found".format(', '.join(map(str, found_rank))))
         
         return [self.HMatrix[i] for i in index]
