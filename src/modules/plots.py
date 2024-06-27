@@ -4,28 +4,71 @@ from scipy.stats import norm
 from sklearn.utils import resample
 import seaborn as sns
 import matplotlib.pyplot as plt
+import src.butcherPy.multiplerun_NMF_class as multiNMF
 
-def heatmap_H(matrix, path):    
-    # TODO: Needs to be regularized before
-    plt.figure(figsize=(15, 6))
-    heatmap = sns.heatmap(matrix, cmap='viridis', annot=False, cbar=True)
-    plt.title('H Matrix')
-    plt.xlabel('Samples')
-    plt.ylabel('Signatures')
+def heatmap_H(NMFobj, path, ranks, matH = True):
+    """
+    Creates a heatmap of either the H or the W matrix and saves it at the given path.
 
-    cbar = heatmap.collections[0].colorbar
-    cbar.ax.set_title('Exposure', pad=10)
+    Parameters
+    ----------
+    NMFobj
+        object from the multipleNMFobject class containing the W and H matrices
+    path
+        path to a directory, including the name of the file to save, as a string
+    ranks
+        list of integers, the matrix resulting from the NMF run with this ranks will be shown in the heatmap
+    matH
+        a boolean, if True the H matrix is used, if False the W matrix is used
+    """
+    if matH:
+        NMFobj.regularize_H(ranks)
+        regH = NMFobj.get_H(ranks)
 
-    cbar.ax.text(1.1, 0, 'Low', ha='left', va='center', transform=cbar.ax.transAxes)
-    cbar.ax.text(1.1, 1, 'High', ha='left', va='center', transform=cbar.ax.transAxes)
+        if len(ranks)>1:
+            matrices = []
+            for i in range(len(ranks)):
+                matrices.append(regH[i])
+            regH = [np.vstack(matrices)]
 
+        plt.figure(figsize=(15, 6))
+        heatmap = sns.heatmap(regH[0], cmap='viridis', annot=False, cbar=True)
+        plt.title('H Matrix', fontsize=20)
+        plt.xlabel('Samples')
+        plt.ylabel('Signatures')
 
-    plt.xticks([])
-    plt.yticks([])
+        cbar = heatmap.collections[0].colorbar
+        cbar.ax.set_title('Exposure', pad=10)
 
-    plt.show()
-    plt.savefig(path)
-    plt.close()
+        cbar.set_ticks([])
+
+        cbar.ax.text(1.1, 0.02, 'Low', ha='left', va='center', transform=cbar.ax.transAxes)
+        cbar.ax.text(1.1, 0.98, 'High', ha='left', va='center', transform=cbar.ax.transAxes)
+
+        plt.xticks([])
+        plt.yticks([])
+
+        plt.show()
+        plt.savefig(path)
+        plt.close()
+    else:
+        NMFobj.regularize_W(ranks)
+        regW = NMFobj.get_W(ranks)
+
+        plt.figure(figsize=(6, 15))
+        heatmap = sns.heatmap(regW[0], cmap='viridis', annot=False, cbar=True)
+        plt.title('W Matrix', fontsize=20)
+        plt.xlabel('Signatures')
+        plt.ylabel('Genes')
+
+        cbar = heatmap.collections[0].colorbar
+
+        plt.xticks([])
+        plt.yticks([])
+
+        plt.show()
+        plt.savefig(path)
+        plt.close()
 
 
 

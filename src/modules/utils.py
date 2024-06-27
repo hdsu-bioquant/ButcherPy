@@ -26,3 +26,6 @@ def setup_rds(path):
         print("The setup of the gene expression matrix failed. The rds file seems not to save valid options, like sparse or dense matrics or experiments.")
 
     return mat
+
+def rds_to_ann():
+    print("RData object into anndata object")

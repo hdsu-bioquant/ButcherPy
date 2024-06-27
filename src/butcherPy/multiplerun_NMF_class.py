@@ -83,11 +83,11 @@ class multipleNMFobject:
         """
 
         index = []
+        found_rank = []
         if ranks=="all":
             index = list(range(len(self.ranks)))
         else:
             # If ranks are specified (as a list) search the corresponding indices of the runs
-            found_rank = []
             for i, settings in enumerate(self.NMF_run_settings):
                 if settings["rank"] in ranks:
                     index.append(i)
@@ -95,7 +95,7 @@ class multipleNMFobject:
         
         if len(index)==0:
             print("No NMF runs have been performed with the indicated ranks, try one of {}".format(', '.join(map(str, self.ranks))))
-        elif len(index)!=len(ranks):
+        elif ranks != "all" and len(index)!=len(ranks):
             print("Not for all ranks there exist a W matrix, only ranks {} were found".format(', '.join(map(str, found_rank))))
         
         return [self.WMatrix[i] for i in index]
@@ -172,6 +172,40 @@ class multipleNMFobject:
                     
                     self.WMatrix[i] = W_norm
                     self.HMatrix[i] = H_new
+                
+    def regularize_W(self, ranks="all"):
+        """
+        Regularize the W matrix for the indicated ranks (range of the values between 0 and 1).
+
+        Parameters
+        ----------
+        ranks
+            list of integer(s) or "all"
+        """ 
+
+        index = []
+        if ranks=="all":
+            index = list(range(len(self.ranks)))
+        else:
+            # If ranks are specified (as a list) search the corresponding indices of the runs
+            for i, settings in enumerate(self.NMF_run_settings):
+                if settings["rank"] in ranks:
+                    index.append(i)
+
+        if len(index)==0:
+            print("There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks))))
+        else:
+
+            for i in index:
+                tempW =self.WMatrix[i]
+                tempH = self.HMatrix[i]
+                
+                # Maximal exposure value per row
+                normFactor = np.max(tempW, axis=0, keepdims=True)
+
+                self.WMatrix[i] = tempW/normFactor
+                self.HMatrix[i] = tempH*normFactor.T
+
 
     def normalise_H(self, ranks="all"):     
         """
