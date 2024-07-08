@@ -15,6 +15,7 @@ import numpy as np
 import calendar
 import time
 from src.butcherPy.multiplerun_NMF_class import multipleNMFobject
+import anndata as ad
 
 
 # Define the NMF_tensor_py function
@@ -28,14 +29,41 @@ def run_NMF(matrix,
             **kwargs):
     
     """
-    Iteratively runs NMF for one given rank with different initializations for input matrix V
-      matrix: initial V matrix
-      rank: factorisation rank (k)
-      n_initializations: number of initializations to run NMF
-      iterations: number of iterations to run NMF for each initialization
-      seed: random seed selected
-      stop_threshold: when to stop the iterations after convergence
-      nthreads: apply multi-threading if your system supports it
+    Iteratively runs NMF for one given rank with different initializations for input matrix.
+
+    Parameters
+    ----------
+    matrix
+        numpy array with two dimensions, initial matrix
+    rank
+        integer, factorisation rank (k)
+    n_initializations
+        integer, number of initializations to run NMF
+    iterations
+        integer, number of iterations to run NMF for each initialization
+    seed
+        integer, random seed selected
+    stop_threshold
+        integer, when to stop the iterations after convergence
+    nthreads
+        integer, number of threads, apply multi-threading if your system supports it
+
+    Returns
+    -------
+    rank
+        the factorisation rank
+    H_num
+       the exposure (H) matrix corresponding to the best NMF run
+    W_num
+        the signature (W) matrix corresponding to the best NMF run
+    W_eval_num
+        the signature (W) matrix corresponding to the best NMF run per initialization
+    iter_to_conv
+        the amount of iterations needed to get convergence for each initialization
+    frobNorm
+        the frobenius norm for each initialization at the end of the iterations (or after convergence)
+    time_stamp
+        start of NMF algorithm
     """
     # Set number of threads                
     torch.set_num_threads(nthreads)
@@ -170,7 +198,7 @@ def run_NMF(matrix,
 
 
 # Run the basic NMF algorithm for multiple factorisation ranks
-def multiple_rank_NMF(matrix, 
+def multiple_rank_NMF(matrixobj, 
             ranks, # list of ks
             n_initializations, 
             iterations, 
@@ -180,19 +208,44 @@ def multiple_rank_NMF(matrix,
             **kwargs):
     
     """
-    Iteratively runs NMF for multiple different factorisation ranks
-      matrix: initial V matrix
-      ranks: factorisation ranks (k)
-      n_initializations: number of initializations to run NMF
-      iterations: number of iterations to run NMF for each initialization
-      seed: random seed selected
-      stop_threshold: when to stop the iterations after convergence
-      nthreads: apply multi-threading if your system supports it
+    Iteratively runs NMF for multiple different factorisation ranks.
+
+    Parameters
+    ----------
+    matrixobj
+        initial matrix
+            - numpy array with two dimensions
+            - AnnData object
+    ranks
+        list of integers, factorisation ranks (k)
+    n_initializations
+        integer, number of initializations to run NMF
+    iterations
+        integer, number of iterations to run NMF for each initialization
+    seed
+        integer, random seed selected
+    stop_threshold
+        integer, when to stop the iterations after convergence
+    nthreads
+        integer, number of threads, apply multi-threading if your system supports it
     """
 
-    # Save the input matrix and a few properties in a dictionary
-    input_matrix = {"gene_expression": matrix, "genes": "rows", "samples": "columns", "dim": matrix.shape}
+    if type(matrixobj) == np.ndarray:
+        matrix = matrixobj
+        rows = [f"Gene_{(i+1):d}" for i in range(matrix.shape[0])]
+        columns = [f"Sample_{(i+1):d}" for i in range(matrix.shape[1])]
+        
+    if type(matrixobj) == ad.AnnData:
+        matrix = np.transpose(matrixobj.X)
+        if type(matrix) != np.ndarray:
+            print("The AnnData matrix is converted to a numpy array.")
+            matrix = matrix.toarray()
+        rows = matrixobj.var_names
+        columns = matrixobj.obs_names
 
+    # Save the input matrix and a few properties in a dictionary
+    input_matrix = {"gene_expression": matrix, "genes": rows, "samples": columns, "dim": matrix.shape}
+    
     NMF_result = []
     run_settings = []
 

@@ -85,8 +85,8 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
     if npmat.shape[0] == npmat.shape[1] and gene_columns == None:
         raise warnings.warn("The column and row dimension are equal, please make sure that the gene_columns parameter indicates, if the genes are saved in the columns (True) or not (False).")
     
-    counts = csr_matrix(npmat, dtype=np.float32)
-    adata = ad.AnnData(counts)
+    # counts = csr_matrix(npmat, dtype=np.float32)
+    adata = ad.AnnData(npmat)
 
 
     #----------------------------------------------------------------------------------------------------------------#
@@ -103,11 +103,11 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
 
     else:
         warnings.warn("You have not provided an annotation for the genes, by default the columns are numerated.")
-        gene_annots = [f"Gene_{i:d}" for i in range(adata.n_vars)]
+        gene_annots = [f"Gene_{(i+1):d}" for i in range(adata.n_vars)]
 
     if type(gene_annots) == list and len(gene_annots) != adata.n_vars:
         warnings.warn("The provided gene annotation does not have the same dimension as the number of columns in the gene expression matrix, by default the columns are numerated. Check your data, especially if the matrix must be transposed and indicate it by the gene_columns parameter.")
-        gene_annots = [f"Gene_{i:d}" for i in range(adata.n_vars)]
+        gene_annots = [f"Gene_{(i+1):d}" for i in range(adata.n_vars)]
     
     adata.var_names = gene_annots
 
@@ -126,11 +126,11 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
 
     else:
         warnings.warn("You have not provided an annotation for the samples, by default the rows are numerated.")
-        sample_annots = [f"Sample_{i:d}" for i in range(adata.n_obs)]
+        sample_annots = [f"Sample_{(i+1):d}" for i in range(adata.n_obs)]
 
     if type(sample_annots) == list and len(sample_annots) != adata.n_obs:
         warnings.warn("The provided sample annotation has not the same dimension as the number of rows in the gene expression matrix, by default the rows are numerated. Check your data, especially if the matrix must be transposed and indicate it by the gene_columns parameter.")
-        sample_annots = [f"Sample_{i:d}" for i in range(adata.n_obs)]
+        sample_annots = [f"Sample_{(i+1):d}" for i in range(adata.n_obs)]
     else:
         # Only if the sample annotations given in the RData file match the row dimension of the matrix the meta data can be used successfully
         if extra_metas and path_to_rdsmeta != None and sample_annot == None:
