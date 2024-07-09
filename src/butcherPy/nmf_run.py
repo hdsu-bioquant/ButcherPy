@@ -16,6 +16,7 @@ import calendar
 import time
 from src.butcherPy.multiplerun_NMF_class import multipleNMFobject
 import anndata as ad
+import pandas as pd
 
 
 # Define the NMF_tensor_py function
@@ -242,6 +243,11 @@ def multiple_rank_NMF(matrixobj,
             matrix = matrix.toarray()
         rows = matrixobj.var_names
         columns = matrixobj.obs_names
+
+    if type(matrixobj) == pd.DataFrame:
+        matrix = matrixobj.to_numpy()
+        rows = matrixobj.index.tolist()
+        columns = matrixobj.columns.tolist()
 
     # Save the input matrix and a few properties in a dictionary
     input_matrix = {"gene_expression": matrix, "genes": rows, "samples": columns, "dim": matrix.shape}

@@ -466,7 +466,7 @@ class multipleNMFobject:
         
         Returns
         -------
-        amari_dist
+        feature_contributions
             a dataframe with genes/features in the rows and signatures in the columns, possible values are
             0 "not contributing" and 1 "contributing"
         """
@@ -498,8 +498,9 @@ class multipleNMFobject:
             print("There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks))))
  
         for i in index:
-
+            
             rank = self.NMF_run_settings[i]['rank']
+            print("Start feature contribution determination for rank", rank)
 
             W = self.WMatrix[i]
             idx = np.sum(W, axis=1) == 0
@@ -519,14 +520,15 @@ class multipleNMFobject:
 
             ssf = np.apply_along_axis(feature_clustering, 1, Wf)
 
-            # Add rows consiting of zeros for the non-contributing features
+            # Have rows consiting of zeros for the non-contributing features
             sig_features = np.zeros_like(W, dtype = int)
             sig_features[~idx, :] = ssf
 
             # Use a dataframe to assign column and row names
             df_sig = pd.DataFrame(sig_features)
             df_sig.columns = ["Sig" + str(rank) + "_" + str(i+1) for i in range(df_sig.shape[1])]
-            df_sig.index = ["Gene" + str(i) for i in range(df_sig.shape[0])]
+            df_sig.index = self.input_matrix["genes"].tolist()
+            #df_sig.index = ["Gene" + str(i) for i in range(df_sig.shape[0])]
 
             every_sig_df = pd.concat([every_sig_df, df_sig], axis=1)
         
