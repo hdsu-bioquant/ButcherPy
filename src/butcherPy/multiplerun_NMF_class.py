@@ -527,7 +527,7 @@ class multipleNMFobject:
             # Use a dataframe to assign column and row names
             df_sig = pd.DataFrame(sig_features)
             df_sig.columns = ["Sig" + str(rank) + "_" + str(i+1) for i in range(df_sig.shape[1])]
-            df_sig.index = self.input_matrix["genes"].tolist()
+            df_sig.index = self.input_matrix["genes"]#.tolist()
             #df_sig.index = ["Gene" + str(i) for i in range(df_sig.shape[0])]
 
             every_sig_df = pd.concat([every_sig_df, df_sig], axis=1)
@@ -556,11 +556,25 @@ class multipleNMFobject:
             # Calculating the Jaccard distance in between each of the gene sets
             for i in range(n):
                 for j in range(n):
-                    distance_matrix[i, j] = jaccardDistance(gene_sets[i], gene_sets[j])
+                    if i == j:
+                        distance_matrix[i, j] = float("NaN")
+                    else:
+                        distance_matrix[i, j] = jaccardDistance(gene_sets[i], gene_sets[j])
 
-            sns.heatmap(distance_matrix, annot=True, xticklabels=sig_df.keys(), yticklabels=sig_df.keys())
+            heatmap = sns.heatmap(distance_matrix, annot=True, xticklabels=sig_df.keys(), yticklabels=sig_df.keys())
             plt.yticks(rotation=0)
             plt.title("Jaccard Distance Heatmap")
+            # Add border around the heatmap
+            ax = plt.gca()
+            for _, spine in ax.spines.items():
+                spine.set_visible(True)
+                spine.set_edgecolor('black')
+                spine.set_linewidth(0.5)
+
+            cbar = heatmap.collections[0].colorbar
+            cbar.ax.text(1.1, 0.02, 'High Similarity', ha='left', va='center', transform=cbar.ax.transAxes)
+            cbar.ax.text(1.1, 0.98, 'Low Similarity', ha='left', va='center', transform=cbar.ax.transAxes)
+            
             plt.show()
             plt.savefig(path)
             plt.close()

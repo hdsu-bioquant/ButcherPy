@@ -249,6 +249,10 @@ def multiple_rank_NMF(matrixobj,
         rows = matrixobj.index.tolist()
         columns = matrixobj.columns.tolist()
 
+    if type(rows) != list:
+        rows = rows.tolist()
+    if type(columns) != list:
+        columns = columns.tolist()
     # Save the input matrix and a few properties in a dictionary
     input_matrix = {"gene_expression": matrix, "genes": rows, "samples": columns, "dim": matrix.shape}
     
