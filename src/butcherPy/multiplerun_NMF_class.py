@@ -540,7 +540,7 @@ class multipleNMFobject:
 
         return self.feature_contributions
 
-    def heatmap(self, path):
+    def signature_heatmap(self, path):
 
         sig_df = self.feature_contributions
 
