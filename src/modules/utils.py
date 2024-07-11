@@ -43,7 +43,7 @@ def setup_rds(path):
 
     return mat
 
-def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = None, extra_metas = False, gene_annot = None, sample_annot = None, gene_columns = None):
+def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = None, gene_index = 0, sample_index = 0, extra_metas = False, gene_annot = None, sample_annot = None, gene_columns = None):
     """
     Transforms RData to AnnData.
 
@@ -55,6 +55,10 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
         string, the path to a RData file containing the gene annotations, the gene_annot gets priority if both are provided
     path_to_rdsmeta
         string, the path to a RData file containing the sample annotations, the sample_annot gets priority if both are provided
+    gene_index
+        integer, the rds data are read as a list of different attributes, the gene index defines which list element will be taken as gene annotation
+    gene_index
+        integer, the rds data are read as a list of different attributes, the sample index defines which list element will be taken as sample annotation
     extra_metas
         boolean, defining if further meta data stored in the path_to_rdsmeta file should be stored in the AnnData object
     gene_annot
@@ -98,8 +102,15 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
     
     elif path_to_rdsannot != None:
         annot = rds2py.read_rds(path_to_rdsannot)
+        print()
+        if gene_index < 0 or gene_index >= len(annot['attributes']['names']['data']):
+            gene_index = 0
+            warnings.warn("The provided gene_index is out of range, by default it is set to 0.")
+
         # Gene annotations
-        gene_annots = annot['data'][1]['data']
+        gene_annots = annot['data'][gene_index]['data']
+        print(f"Your gene annotation file stores {', '.join(annot['attributes']['names']['data'])}. Due to the provided gene_index parameter of {gene_index}, {annot['attributes']['names']['data'][gene_index]} is used for the annotation. If this is not the desired gene annotation, you can change the index parameter, with these options:")
+        print(', '.join([f"{i} (corresponding to {name})" for i, name in [tuple((i, name)) for i, name in enumerate(annot['attributes']['names']['data'])]]))
 
     else:
         warnings.warn("You have not provided an annotation for the genes, by default the columns are numerated.")
@@ -121,8 +132,15 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
 
     elif path_to_rdsmeta != None:
         meta = rds2py.read_rds(path_to_rdsmeta)
+        print()
+        if sample_index < 0 or sample_index >= len(meta['attributes']['names']['data']):
+            sample_index = 0
+            warnings.warn("The provided sample_index is out of range, by default it is set to 0.")
+
         # Sample annotations
-        sample_annots = meta['data'][0]['data']
+        sample_annots = meta['data'][sample_index]['data']
+        print(f"Your sample annotation file stores {', '.join(meta['attributes']['names']['data'])}. Due to the provided sample_index parameter of {sample_index}, {meta['attributes']['names']['data'][sample_index]} is used for the annotation. If this is not the desired sample annotation, you can change the index parameter, with these options:")
+        print(', '.join([f"{i} (corresponding to {name})" for i, name in [tuple((i, name)) for i, name in enumerate(meta['attributes']['names']['data'])]]))
 
     else:
         warnings.warn("You have not provided an annotation for the samples, by default the rows are numerated.")
@@ -133,10 +151,11 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
         sample_annots = [f"Sample_{(i+1):d}" for i in range(adata.n_obs)]
     else:
         # Only if the sample annotations given in the RData file match the row dimension of the matrix the meta data can be used successfully
-        if extra_metas and path_to_rdsmeta != None and sample_annot == None:
-            metas = meta['attributes']['names']['data'][1:]
+        if extra_metas and path_to_rdsmeta != None:# and sample_annot == None:
+            meta = rds2py.read_rds(path_to_rdsmeta)
+            metas = meta['attributes']['names']['data']
             for i, m in enumerate(metas):
-                adata.obs[m] = meta['data'][i+1]['data'] 
+                adata.obs[m] = meta['data'][i]['data'] 
 
     adata.obs_names = sample_annots
 
