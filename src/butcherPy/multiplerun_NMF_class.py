@@ -7,6 +7,7 @@ Created by Ana Luisa Costa and Leonie Boland
 """
 
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import sklearn as sk
 from scipy.spatial.distance import pdist, squareform
@@ -496,7 +497,9 @@ class multipleNMFobject:
         every_sig_df = pd.DataFrame()
 
         if type(ranks)==list and len(index)!=len(ranks):
-            print("For at least one of the indicated ranks there was no run conducted, try the values {}".format(', '.join(map(str, self.ranks))))
+            new_existing_ranks = [r for r in existing_ranks if r in ranks]
+            if len(new_existing_ranks)+len(index)!=len(ranks):
+                print("For at least one of the indicated ranks there was no run conducted, try the values {}".format(', '.join(map(str, self.ranks))))
  
         for i in index:
             
@@ -528,8 +531,7 @@ class multipleNMFobject:
             # Use a dataframe to assign column and row names
             df_sig = pd.DataFrame(sig_features)
             df_sig.columns = ["Sig" + str(rank) + "_" + str(i+1) for i in range(df_sig.shape[1])]
-            df_sig.index = self.input_matrix["genes"]#.tolist()
-            #df_sig.index = ["Gene" + str(i) for i in range(df_sig.shape[0])]
+            df_sig.index = self.input_matrix["genes"]
 
             every_sig_df = pd.concat([every_sig_df, df_sig], axis=1)
         
@@ -565,6 +567,7 @@ class multipleNMFobject:
         if top_n == 0:
 
             sig_df = self.feature_contributions
+            print(sig_df.empty)
             if not sig_df.empty:
 
                 if ranks=="all":
@@ -662,11 +665,15 @@ class multipleNMFobject:
         figsize = (max(10, n*0.93), max(6, (n*0.64)))
         plt.figure(figsize=figsize)
         norm = Normalize(vmin=0, vmax=1)
-        heatmap = sns.heatmap(distance_matrix, annot=True, xticklabels=labels, yticklabels=labels, cbar_kws={"extend": "neither"}, norm=norm)
+        heatmap = sns.heatmap(distance_matrix, annot=True, xticklabels=labels, yticklabels=labels, cbar_kws={"extend": "neither"}, norm=norm)#, linewidths=0, linecolor="white")
         plt.yticks(rotation=0)
 
+        ax = heatmap.axes
+
+        # Remove grid lines
+        ax.grid(False)
+
         # Add border around the heatmap, but not around individual cells
-        ax = plt.gca()
         for _, spine in ax.spines.items():
             spine.set_visible(True)
             spine.set_edgecolor('black')
@@ -683,10 +690,12 @@ class multipleNMFobject:
             for ytick, length in zip(ax.get_yticklabels(), set_length):
                 ax.text(1.02, ytick.get_position()[1], f'{length} genes', transform=ax.get_yaxis_transform(), ha='left', va='center')
             
-            cbar_anchor_x = ax.texts[-1].get_position()[0]-0.1
+            cbar_anchor_x = ax.texts[-1].get_position()[0]+0.15
             cbar.ax.set_anchor((cbar_anchor_x, 0))
 
         plt.suptitle(title, weight = "bold", y=0.95)
+        if top_n==0:
+            plt.tight_layout(rect=[0, 0, 1, 0.95])
         plt.show()
         plt.savefig(path)
         plt.close()
