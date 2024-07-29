@@ -567,7 +567,6 @@ class multipleNMFobject:
         if top_n == 0:
 
             sig_df = self.feature_contributions
-            print(sig_df.empty)
             if not sig_df.empty:
 
                 if ranks=="all":
