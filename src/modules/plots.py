@@ -512,7 +512,7 @@ def recovery_plot(NMFobj, rank, sample_annot = None, path_to_save = None):
             sample_annot_dict = {"Samples": sample_annot}
         elif type(sample_annot)==dict:
             sample_annot_dict = sample_annot
-            sample_annot = sample_annot[sample_annot.keys()[0]]
+            sample_annot = sample_annot[list(sample_annot.keys())[0]]
             
 
     if rank not in NMFobj.ranks:
