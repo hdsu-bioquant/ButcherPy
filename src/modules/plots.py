@@ -431,8 +431,9 @@ def H_heatmap(NMFobj, ranks, sample_annot = None, path_to_save = None):
     for i, (annot, title) in enumerate(zip(column_annots, annot_names)):
 
         unique_annotations = np.unique(annot)
-        palette = sns.color_palette("Paired", n_colors=len(unique_annotations))
-        if len(unique_annotations) > len(sns.color_palette("Paired")):
+
+        palette = sns.color_palette("hls", n_colors=len(unique_annotations))
+        if len(unique_annotations) > len(sns.color_palette("hls")):
             warnings.warn(f"There are more sample annotation groups in {title} than colors in the palette resulting in the usage of the same color for different groups.")
         annotation_colors = {label: color for label, color in zip(unique_annotations, palette)}
         mapped_colors = [annotation_colors[val] for val in annot]
@@ -505,12 +506,20 @@ def recovery_plot(NMFobj, rank, sample_annot = None, path_to_save = None):
     # Extract the sample annotations
     if sample_annot is None:
         sample_annot = NMFobj.input_matrix["samples"]
+        sample_annot_dict = {"Samples": NMFobj.input_matrix["samples"]}
+    else:
+        if type(sample_annot)==list:
+            sample_annot_dict = {"Samples": sample_annot}
+        elif type(sample_annot)==dict:
+            sample_annot_dict = sample_annot
+            sample_annot = sample_annot[sample_annot.keys()[0]]
+            
 
     if rank not in NMFobj.ranks:
         raise ValueError("For the given rank no NMF run has been conducted.")
     
     # H heatmap for colors and combined visualization
-    color_annot, rank_annot = H_heatmap(NMFobj, [rank], sample_annot=sample_annot, path_to_save="H_recovery_plot")
+    color_annot, rank_annot = H_heatmap(NMFobj, [rank], sample_annot=sample_annot_dict, path_to_save="H_recovery_plot")
     # Extract the H matrix
     matrix = NMFobj.get_H([rank])[0]
 
