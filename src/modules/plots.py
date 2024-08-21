@@ -322,7 +322,7 @@ def H_heatmap(NMFobj, ranks, sample_annot = None, path_to_save = None):
     #                                         CREATE THE HEATMAP                                           # 
     ########################################################################################################
     
-    heatmap = sns.heatmap(data_ordered, cmap='viridis', ax=ax, cbar=True, cbar_kws={"shrink": param_dict['heatmap_shrink'][nr_annots], "location": "right", "anchor": (-0.14, param_dict['heatmap_anchor_y'][nr_annots])})
+    heatmap = sns.heatmap(data_ordered, cmap='viridis', ax=ax, cbar=True, cbar_kws={"shrink": param_dict['heatmap_shrink'][nr_annots], "location": "right", "anchor": (-0.33, param_dict['heatmap_anchor_y'][nr_annots])})
     heatmap_pos = ax.get_position()
     plt.xticks([])
     yticks = ["Sig{}_{}".format(rank, i+1) for rank in ranks for i in range(rank)]
@@ -454,7 +454,7 @@ def H_heatmap(NMFobj, ranks, sample_annot = None, path_to_save = None):
     annot_names.reverse()
     legend_len = 0 
     for i in range(len(legends)):
-        legend = ax.legend(handles=legends[i], title=annot_names[i], loc='upper right', bbox_to_anchor=(1.77, 1.4-legend_len*0.3))
+        legend = ax.legend(handles=legends[i], title=annot_names[i], loc='upper right', bbox_to_anchor=(1.68, 1.4-legend_len*0.3))
         legend_len+=legend.get_window_extent().height/100
         # Add legends to the figure
         ax.add_artist(legend)
@@ -482,6 +482,97 @@ def H_heatmap(NMFobj, ranks, sample_annot = None, path_to_save = None):
     plt.close()
 
     return annotation_colors, rank_colors
+
+def W_heatmap(NMFobj, ranks, sig_annot = None, path_to_save = None, sig_annot_recovery = False):
+    # commenting, optional column annotations from recovery plot or just given by user
+    # SignatureSpecificFeatures in nmf-Experiment-class_lite for the signature annotations using 
+    # WcomputeFeatureStats from nmf_functions_lite
+    NMFobj.regularize_W(ranks)
+    regW = NMFobj.get_W(ranks)
+
+    matrices = []
+    for i in range(len(ranks)):
+        sigspecifics = SignatureSpecificFeatures(NMFobj, ranks[i])
+        genes = NMFobj.input_matrix['genes']
+        indices = [genes.index(name) for name in sigspecifics]
+        matrices.append(regW[i][indices, :])
+    regW = [np.hstack(matrices)]
+
+    # Perform hierarchical clustering on the rows
+    row_clusters = hierarchy.linkage(regW[0], method = 'ward')
+
+    # Create a figure with 4 subplots (one for y-axis label, one for dendrogram, one for less space between dendrogram and heatmap, and one for heatmap)
+    fig = plt.figure(figsize=(10, 8))
+    gs = fig.add_gridspec(1, 4, width_ratios=[0.1, 1, -0.22, 4])
+    # Override the default linewidth
+    matplotlib.rcParams['lines.linewidth'] = 0.8
+
+    # Add the axis for the y-axis label
+    ax_label = fig.add_subplot(gs[0])
+    ax_label.axis('off')
+    ax_label.text(0.5, 0.5, 'Features (e.g. genes)', rotation=90, va='center', ha='center', fontsize=23)
+
+    # Add the axis for the dendrogram
+    ax_dendro = fig.add_subplot(gs[1])
+    dendro = hierarchy.dendrogram(row_clusters, orientation='left', ax=ax_dendro, no_labels=True, link_color_func=lambda x: 'k')
+
+    # Remove the border around the dendrogram
+    ax_dendro.spines['top'].set_visible(False)
+    ax_dendro.spines['right'].set_visible(False)
+    ax_dendro.spines['bottom'].set_visible(False)
+    ax_dendro.spines['left'].set_visible(False)
+
+    ax_dendro.set_xticks([])
+    ax_dendro.set_yticks([])
+
+    # Adjust the position of the dendrogram subplot to move it slightly to the right
+    #pos = ax_dendro.get_position()
+    #ax_dendro.set_position([pos.x0 + 0.02, pos.y0, pos.width, pos.height])  # Adjust x0 to move right
+
+    # Reorder the rows according to the clustering
+    reordered_W = regW[0][dendro['leaves'], :]
+
+    # Create the heatmap axis
+    ax_heatmap = fig.add_subplot(gs[3])
+    if sig_annot == None and sig_annot_recovery == False:
+        xticks = ["Sig{}_{}".format(rank, i+1) for rank in ranks for i in range(rank)]
+    elif sig_annot != None:
+        if sig_annot_recovery == True:
+            warnings.warn("You have provided your own signature annotation and set sig_annot_recovery to True. The annotations you provided will be used, if you want to see the annotations infered from the recovery plot set sig_annot to None and sig_annot_recovery to True.")
+   
+    heatmap = sns.heatmap(reordered_W, ax=ax_heatmap, cmap='inferno', cbar=True, xticklabels=xticks, yticklabels=False)
+    ax_heatmap.set_xticklabels(ax_heatmap.get_xticklabels(), fontsize=14)
+    # Adapt the colorbar
+    cbar = heatmap.collections[0].colorbar
+    cbar.ax.set_title('Exposure', pad=12, weight = 'bold', fontsize=15, ha='left')
+
+    cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+    cbar.ax.tick_params(labelsize=15)
+
+
+    ax_heatmap.set_xlabel('Signatures', fontsize=23, labelpad=10)
+
+    fig.suptitle('W Matrix', fontsize=35, weight = 'bold')
+
+    plt.tight_layout()
+    if path_to_save != None:
+        plt.savefig(path_to_save)
+    plt.show()
+    plt.close()
+
+
+def SignatureSpecificFeatures(NMFobj, rank, return_all_features=False):
+    # Perform feature extraction
+    NMFobj.WcomputeFeatureStats(ranks=[rank])
+    gene_cont_df = NMFobj.feature_contributions.filter(regex=r'^Sig4')
+    if return_all_features:
+        sig_feats = gene_cont_df
+    else:
+        sig_feats = gene_cont_df.loc[gene_cont_df.sum(axis=1)==1]
+
+    return list(sig_feats.index)
+    #return sig_feats
+
 
 
 

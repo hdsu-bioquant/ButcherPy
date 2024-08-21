@@ -17,6 +17,7 @@ import time
 from src.butcherPy.multiplerun_NMF_class import multipleNMFobject
 import anndata as ad
 import pandas as pd
+import warnings
 
 
 # Define the NMF_tensor_py function
@@ -75,7 +76,18 @@ def run_NMF(matrix,
     
     # NMF in tensorflow
     n = matrix.shape[0] # number of rows
-    m = matrix.shape[1] # number of columns    
+    m = matrix.shape[1] # number of columns
+
+    if n < rank and m < rank:
+        warnings.warn("Be aware that the number of columns/samples and rows/genes are lower than the indicated ranks.")
+    elif n < rank:
+        warnings.warn("Be aware that the number of rows/genes is lower than the indicated ranks.")
+    elif m < rank:
+        warnings.warn("Be aware that the number of columns/samples is lower than the indicated ranks.")
+
+    if matrix.shape[0] == 1 or matrix.shape[1] == 1:
+        warnings.warn("Your input has only 1 entry in either of the dimensions. Be aware that the NMF algorithm might not be able to catch any patterns in the vector. Check if your matrix input has the shape you expected or if the NMF algorithm makes sense to use for your problem.")
+
     # Creates a constant tensor object from the matrix
     X = torch.tensor(matrix, dtype=torch.float32)
     #print(f"Initial matrix with {n} rows and {m} columns converted to tensor object.")
@@ -191,7 +203,7 @@ def run_NMF(matrix,
     # rank: the factorisation rank
     # H_num: the exposure (H) matrix corresponding to the best NMF run
     # W_num: the signature (W) matrix corresponding to the best NMF run
-    # W_eval_num: the signature (W) matrix corresponding to the best NMF run per initialization
+    # W_eval_num: a list of the signature (W) matrix corresponding to the results of each initialization
     # iter_to_conv: the amount of iterations needed to get convergence for each initialization
     # frobNorm: the frobenius norm for each initialization at the end of the iterations (or after convergence)
     # time_stamp: start of NMF algorithm
@@ -255,6 +267,9 @@ def multiple_rank_NMF(matrixobj,
         columns = columns.tolist()
     # Save the input matrix and a few properties in a dictionary
     input_matrix = {"gene_expression": matrix, "genes": rows, "samples": columns, "dim": matrix.shape}
+
+    if type(ranks) != list:
+        raise TypeError(f"Expected parameter of type list, but got {type(ranks).__name__}")
     
     NMF_result = []
     run_settings = []
