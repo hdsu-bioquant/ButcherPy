@@ -20,9 +20,8 @@ import pandas as pd
 import warnings
 
 
-# Define the NMF_tensor_py function
 def run_NMF(matrix, 
-            rank, # k or common dim
+            rank, 
             n_initializations, 
             iterations, 
             seed, 
@@ -73,7 +72,22 @@ def run_NMF(matrix,
     # Add timestamp of the run start
     current_GMT = time.gmtime()
     time_stamp = calendar.timegm(current_GMT)
-    
+
+    # Check type and shape of matrix
+    if not type(matrix) == np.ndarray:
+        raise TypeError(f"The matrix is supposed to be a numpy ndarray, not a {type(matrix)}.")
+    else:
+        if len(matrix.shape) != 2:
+            raise ValueError(f"The matrix needs to be 2 dimensional, not {len(matrix.shape)} dimensional.")
+        elif matrix.shape[0] < 1 or matrix.shape[1] < 1:
+            raise ValueError(f"At least one of the 2 dimensions has no entry.")
+        
+    # Check the given rank
+    if not type(rank) == int:
+        raise TypeError(f"The rank has to be an integer, not {type(rank)}.")
+    elif rank < 1:
+        raise ValueError(f"The rank must at least be 1 or higher.")
+
     # NMF in tensorflow
     n = matrix.shape[0] # number of rows
     m = matrix.shape[1] # number of columns
@@ -184,10 +198,6 @@ def run_NMF(matrix,
             Best_frob = frobInit
             Best_H    = H
             Best_W    = W
-        #x = frobInit = tf.linalg.norm(X - tf.matmul(Best_W, Best_H)) / tf.linalg.norm(X)
-        #print("Best frob:", x.numpy())
-        #print("Current frob", frobInit.numpy())
-        #fb = tf.reduce_sum(fb, 0)
     
     ##-----------------------------------------------------------------------##
     ##             Convert to numpy, transpose and return                    ##
@@ -229,6 +239,7 @@ def multiple_rank_NMF(matrixobj,
         initial matrix
             - numpy array with two dimensions
             - AnnData object
+            - pandas DataFrame
     ranks
         list of integers, factorisation ranks (k)
     n_initializations
