@@ -1,10 +1,9 @@
+import matplotlib.gridspec
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from sklearn.utils import resample
 import seaborn as sns
 import matplotlib.pyplot as plt
-import src.butcherPy.multiplerun_NMF_class as multiNMF
 import matplotlib
 from matplotlib.colors import ListedColormap
 from scipy.cluster import hierarchy
@@ -12,9 +11,14 @@ import matplotlib.patches as mpatches
 from matplotlib.cm import ScalarMappable
 import math
 import matplotlib.patches as patches
-from sklearn.metrics import auc
 from matplotlib.lines import Line2D
 import warnings
+from scipy.optimize import nnls
+import plotly.colors as pc
+import re
+import plotly.graph_objects as go
+import plotly.io as pio
+from sklearn.decomposition import PCA
 
 def H_heatmap_backup(NMFobj, ranks, sample_annot = None, path_to_save = None):
     """
@@ -483,40 +487,77 @@ def H_heatmap(NMFobj, ranks, sample_annot = None, path_to_save = None):
 
     return annotation_colors, rank_colors
 
-def W_heatmap(NMFobj, ranks, sig_annot = None, path_to_save = None, sig_annot_recovery = False):
-    # commenting, optional column annotations from recovery plot or just given by user
-    # SignatureSpecificFeatures in nmf-Experiment-class_lite for the signature annotations using 
-    # WcomputeFeatureStats from nmf_functions_lite
+def W_heatmap(NMFobj, ranks, sig_specific = True, sig_annot = None, path_to_save = None, sig_annot_recovery = False, sample_annot = None):
+    """
+    Creates a heatmap of the W matrix and saves it at the given path.
+
+    Parameters
+    ----------
+    NMFobj
+        object from the multipleNMFobject class containing the H matrices
+    ranks
+        list of integers, the matrix resulting from the NMF run with these ranks will be shown in the heatmap
+    sig_specific
+        boolean, whether only to show signature specific features or all of them
+    sig_annot
+        None, the signatures are numbered OR
+        list of strings, the list must have the same length as number of columns and its elements are used as xtick labels
+    path_to_save
+        string, path to a directory, including the name of the file to save
+    sig_annot_recovery
+        boolean, whether the naming of the signatures shall be done with the help of the recovery plot or not
+    sample_annot
+        None, use the sample annotations that have been saved in the NMF object OR
+        list, with the same length as the number of samples will be used as the sample annotations for the recovery plot and thus the naming of the signatures
+    """    
+    
+    ########################################################################################################
+    #               REGULARIZE W MATRICES FOR PROVIDED RANKS AND CONNECT THE MATRICES INTO ONE             #
+    ########################################################################################################
+    
     NMFobj.regularize_W(ranks)
     regW = NMFobj.get_W(ranks)
 
     matrices = []
     for i in range(len(ranks)):
-        sigspecifics = SignatureSpecificFeatures(NMFobj, ranks[i])
-        genes = NMFobj.input_matrix['genes']
-        indices = [genes.index(name) for name in sigspecifics]
-        matrices.append(regW[i][indices, :])
+        if sig_specific:
+            # determine signature specific features and filter the W matrix for those genes
+            sigspecifics = SignatureSpecificFeatures(NMFobj, ranks[i])
+            genes = NMFobj.input_matrix['genes']
+            indices = [genes.index(name) for name in sigspecifics]
+            matrices.append(regW[i][indices, :])
+        else:
+            matrices.append(regW[i])
     regW = [np.hstack(matrices)]
 
-    # Perform hierarchical clustering on the rows
-    row_clusters = hierarchy.linkage(regW[0], method = 'ward')
-
-    # Create a figure with 4 subplots (one for y-axis label, one for dendrogram, one for less space between dendrogram and heatmap, and one for heatmap)
-    fig = plt.figure(figsize=(10, 8))
-    gs = fig.add_gridspec(1, 4, width_ratios=[0.1, 1, -0.22, 4])
-    # Override the default linewidth
+    ########################################################################################################
+    #                           CALCULATE LINKAGE AND DEFINE DENDROGRAM                                    # 
+    ########################################################################################################
+    
+    # override the default linewidth
     matplotlib.rcParams['lines.linewidth'] = 0.8
 
-    # Add the axis for the y-axis label
+    # perform hierarchical clustering on the rows
+    row_clusters = hierarchy.linkage(regW[0], method = 'ward')
+
+    # create a figure with 4 subplots (one for y-axis label, one for dendrogram, one for less space between dendrogram and heatmap, and one for heatmap)
+    fig = plt.figure(figsize=(10, 8))
+    gs = fig.add_gridspec(1, 4, width_ratios=[0.1, 1, -0.22, 4])
+
+    ########################################################################################################
+    #                              CREATE AXIS FOR LABEL AND DENDROGRAM                                    # 
+    ########################################################################################################
+
+    # add the axis for the y-axis label
     ax_label = fig.add_subplot(gs[0])
     ax_label.axis('off')
     ax_label.text(0.5, 0.5, 'Features (e.g. genes)', rotation=90, va='center', ha='center', fontsize=23)
 
-    # Add the axis for the dendrogram
+    # add the axis for the dendrogram
     ax_dendro = fig.add_subplot(gs[1])
     dendro = hierarchy.dendrogram(row_clusters, orientation='left', ax=ax_dendro, no_labels=True, link_color_func=lambda x: 'k')
 
-    # Remove the border around the dendrogram
+    # remove the border around the dendrogram
     ax_dendro.spines['top'].set_visible(False)
     ax_dendro.spines['right'].set_visible(False)
     ax_dendro.spines['bottom'].set_visible(False)
@@ -525,30 +566,67 @@ def W_heatmap(NMFobj, ranks, sig_annot = None, path_to_save = None, sig_annot_re
     ax_dendro.set_xticks([])
     ax_dendro.set_yticks([])
 
-    # Adjust the position of the dendrogram subplot to move it slightly to the right
-    #pos = ax_dendro.get_position()
-    #ax_dendro.set_position([pos.x0 + 0.02, pos.y0, pos.width, pos.height])  # Adjust x0 to move right
+    ########################################################################################################
+    #                                           CREATE HEATMAP                                             # 
+    ########################################################################################################
 
-    # Reorder the rows according to the clustering
+    # reorder the rows according to the clustering
     reordered_W = regW[0][dendro['leaves'], :]
 
-    # Create the heatmap axis
+    # create the heatmap axis
     ax_heatmap = fig.add_subplot(gs[3])
+
+    # create the x ticks labels
     if sig_annot == None and sig_annot_recovery == False:
+        # default ticks, just numbering the signatures
         xticks = ["Sig{}_{}".format(rank, i+1) for rank in ranks for i in range(rank)]
     elif sig_annot != None:
+        # handle user defined signature annotation
         if sig_annot_recovery == True:
             warnings.warn("You have provided your own signature annotation and set sig_annot_recovery to True. The annotations you provided will be used, if you want to see the annotations infered from the recovery plot set sig_annot to None and sig_annot_recovery to True.")
-   
+        if type(sig_annot)==list and len(sig_annot) == sum(ranks):
+            xticks = sig_annot
+        else:
+            warnings.warn("Your provided signature annotation is not of the correct form. It must be a list with its length being equal to the sum of the ranks.")
+            xticks = ["Sig{}_{}".format(rank, i+1) for rank in ranks for i in range(rank)]
+    else:
+        # create ticks from the recovery plot
+        annot_df = {}
+        # for each rank the recovery plot and the p values must be computed independently
+        for rank in ranks:
+            if sample_annot == None:
+                sample_annot = NMFobj.input_matrix["samples"]
+            annot_groups = list(set(sample_annot))
+            auc_dfs = recovery_plot(NMFobj, rank, sample_annot, path_to_save="recovery_for_Wannots")
+            for i in range(len(auc_dfs[0])):
+                # get the p values in one row for each signature
+                pvals = [df["p"].iloc[i] for df in auc_dfs]
+                annots = []
+                for e, p in enumerate(pvals):
+                    # add the sample annotation to the signatures annotation if the p value is small
+                    if p < 0.05:
+                        annots.append(annot_groups[e])
+                annot_df[f"Sig{rank}_{i+1}"] = annots
+        xticks = [annot_df[key] for key in list(annot_df.keys())]    
+        xticks = ["\n".join(ticks) for ticks in xticks]
+
     heatmap = sns.heatmap(reordered_W, ax=ax_heatmap, cmap='inferno', cbar=True, xticklabels=xticks, yticklabels=False)
-    ax_heatmap.set_xticklabels(ax_heatmap.get_xticklabels(), fontsize=14)
-    # Adapt the colorbar
+    ax_heatmap.set_xticklabels(ax_heatmap.get_xticklabels(), fontsize=14, rotation=90)
+    
+    # create top x ticks with the signature labels in case that they are not given as the "normal" x ticks
+    top_xticks = ["Sig{}_{}".format(rank, i+1) for rank in ranks for i in range(rank)]
+        
+    if xticks != top_xticks:
+        secax = ax_heatmap.secondary_xaxis('top')
+        secax.set_xticks(np.arange(len(top_xticks)) + 0.5) 
+        secax.set_xticklabels(top_xticks, fontsize=10)
+        
+    # adapt the colorbar
     cbar = heatmap.collections[0].colorbar
     cbar.ax.set_title('Exposure', pad=12, weight = 'bold', fontsize=15, ha='left')
 
     cbar.set_ticks([0, 0.2, 0.4, 0.6, 0.8, 1])
     cbar.ax.tick_params(labelsize=15)
-
 
     ax_heatmap.set_xlabel('Signatures', fontsize=23, labelpad=10)
 
@@ -592,6 +670,11 @@ def recovery_plot(NMFobj, rank, sample_annot = None, path_to_save = None):
         list, with the same length as the number of samples will be used as the sample annotations
     path_to_save
         string, path to a directory, including the name of the file to save   
+    
+    Returns
+    -------
+    auc_dfs
+        list of dictionaries, containing the p values for each sample annotation group per signature, mainly for use in the W heatmap plot
     """
 
     # Extract the sample annotations
@@ -772,6 +855,8 @@ def recovery_plot(NMFobj, rank, sample_annot = None, path_to_save = None):
         plt.savefig(path_to_save)
     plt.close()
 
+    return auc_dfs
+
 
 def custom_auc(list_ranks, max=None):
     """
@@ -808,3 +893,416 @@ def custom_auc(list_ranks, max=None):
         all_auc.append(rauc)
 
     return all_auc
+
+
+def optK_plot(NMFobj, plot_metrics = ["FrobError", "FrobError_cv", "meanAmariDist", "sumSilWidth", "meanSilWidth", "copheneticCoeff"], path_to_save = None):
+    """
+    Creates a plot showing metrics to evluate the quality of the different factorization ranks.
+
+    Parameters
+    ----------
+    NMFobj
+        object from the multipleNMFobject class
+    plot_metrics
+        list of strings, a list containing the name of the metrics that shall be plotted
+        all options are: "FrobError", "FrobError_min", "FrobError_mean", "FrobError_sd", "FrobError_cv", "meanAmariDist", "sumSilWidth", "meanSilWidth", "copheneticCoeff"
+    path_to_save
+        string, path to a directory, including the name of the file to save   
+    """
+
+    # titles for the plots
+    custom_titles = {
+        "FrobError": "Frobenius error",
+        "FrobError_min": "Frobenius error minimum",
+        "FrobError_mean": "mean Frobenius error",
+        "FrobError_sd": "Frobenius error standard deviation",
+        "FrobError_cv": "Coefficient of variation",
+        "meanAmariDist": "Mean Amari distance",
+        "sumSilWidth": "sum Silhouette width",
+        "meanSilWidth": "mean Silhouette width",
+        "copheneticCoeff": "Cophenetic coefficient"
+    }
+
+    valid_metrics = []
+    for metric in plot_metrics:
+        if metric not in list(custom_titles.keys()):
+            print(f"{metric} is not supported, instead choose metrics from {list(custom_titles.keys())}")
+        else:
+            valid_metrics.append(metric)
+
+    valid_metrics = list(set(valid_metrics))
+        
+    if not valid_metrics:
+        warnings.warn("There is no valid metric in the list you provided! The default metrics are used for the plot instead.")
+        valid_metrics = ["FrobError", "FrobError_cv", "meanAmariDist", "sumSilWidth", "meanSilWidth", "copheneticCoeff"]
+
+    # create datafram with Frobenius error for all initializations
+    all_frobs = NMFobj.frobenius
+    ks = NMFobj.ranks
+    frob_df = pd.DataFrame(all_frobs, columns=[f"Init_{i+1}" for i in range(len(all_frobs[0]))])
+    frob_df["rank"] = ks
+
+    frob_df = frob_df.melt(id_vars=["rank"], var_name="Initialization", value_name="Stat")
+    frob_df["Metric"] = "FrobError"
+    frob_df["Stat"] = frob_df["Stat"].apply(lambda x: float(x))
+
+    
+    # compute all other metric values
+    optKstats = NMFobj.compute_OptKStats_NMF()
+
+    # create dataframe with all metrics (except Frobenius error for all initializations)
+    metric_dict = pd.DataFrame(optKstats)
+    metric_dict = metric_dict.melt(id_vars=["rank"], var_name="Metric", value_name="Stat")
+
+    # concatenate the two dataframes
+    plot_data = pd.concat([frob_df, metric_dict])
+    plot_data = plot_data[plot_data["Metric"].isin(valid_metrics)]
+
+    # save in the dataframe if the metric is to be minimized or maximized
+    metrics_to_minimize = ["FrobError", "FrobError_min", "FrobError_mean", "FrobError_sd", "FrobError_cv", "meanAmariDist"]
+    metrics_to_maximize = ["sumSilWidth", "meanSilWidth", "copheneticCoeff"]
+
+    # create a mapping dictionary
+    metric_mapping = {metric: "minimized" for metric in metrics_to_minimize}
+    metric_mapping.update({metric: "maximized" for metric in metrics_to_maximize})
+
+    # add the new column based on the mapping dictionary
+    plot_data['max_or_min'] = plot_data['Metric'].map(metric_mapping)
+
+    # calculate the optimal factorization rank
+    opt_k = NMFobj.compute_OptK()
+
+    # START PLOTTING
+    g = sns.FacetGrid(plot_data, col="Metric", col_wrap=2, sharex=False, sharey=False, hue="max_or_min")
+    # show the optimal factorization rank by a line in all subplots
+    for k in opt_k:
+        g.map(plt.axvline, x=k, color='firebrick', linestyle='--')
+    g.map(sns.scatterplot, 'rank', "Stat")
+    g.add_legend(loc="center right", title = "Goal of metric is to be")
+
+    # set the x-ticks to be the ranks
+    for ax in g.axes.flat:
+        ax.set_xticks(ks)
+        ax.grid(True, which='both', alpha=0.4)
+
+    # set custom titles
+    g.set_titles(col_template="{col_name}")
+    for ax, title in zip(g.axes.flat, g.col_names):
+        ax.set_title(custom_titles[title], color = "coral")
+
+    # adding title and x-axis label
+    cols = int(np.ceil(len(valid_metrics)/2))
+    pos_dict = {1: [0.3, 0.78, 0.16, 0.92],
+                2: [0.16, 0.88, 0.09, 0.96],
+                3: [0.11, 0.9, 0.06, 0.96],
+                4: [0.08, 0.93, 0.05, 0.97],
+                5: [0.07, 0.95, 0.04, 0.98]}
+    
+    plt.subplots_adjust(bottom=pos_dict[cols][0], top=pos_dict[cols][1])
+    g.figure.text(0.45, pos_dict[cols][2], "Factorization rank k", ha="center", va="center", fontsize = 14)
+    g.figure.text(0.45, pos_dict[cols][3], "Optimal Factorization Rank", ha="center", va="center", fontsize = 16, fontweight="bold")
+    
+    legend_elements=[Line2D([0], [0], color='firebrick', linestyle='--', label='Best factorization rank(s) computed by compute_OptK()')]
+    g.figure.legend(handles=legend_elements, loc = "lower center", bbox_to_anchor=(0.49, 0))
+
+    g.set_ylabels("")
+    g.set_xlabels("")
+
+    plt.show()
+    if path_to_save != None:
+        plt.savefig(path_to_save)
+    plt.close()
+
+
+def river(NMFobj, path_to_save = None, ranks = None, useH = False, edges_cutoff = 0, sig_labels = True, sig_annot = None, sig_annot_recovery = False, sample_annot = None):
+    """
+    Creates a river plot with nodes presenting the signatures and the edges between signatures of different ranks
+    depict the stability of the signature throughout the ranks.
+
+    Parameters
+    ----------
+    NMFobj
+        object from the multipleNMFobject class
+    path_to_save
+        string, path to a directory, including the name of the file to save  
+    ranks
+        list of at least two integers
+        None, the optimal ranks are used, if there exist more than one
+    useH
+        boolean, if False W matrix is used, if True H matrix is used
+    edges_cutoff
+        float, the edge between nodes is only presented if the edge value is above the edges_cutoff parameter
+    sig_labels
+        boolean, if True the signatures labels will be shown at the nodes
+    sig_annot
+        list with length of maximal rank, these annotations is used for a legend giving the medical values the signatures at the end of the river plot (highest rank presented) are relevant for
+    sig_annot_recovery
+        boolean, if True the relevant medical annotations for the legend of the highest rank in the river plot are taken from the recovery plot
+    sample_annot
+        if recovery plot is used, these will be the sample annotations the relevance of the signatures is checked for 
+    """
+    
+    ######################################################################################################
+    #                                   RETRIEVE AND PREPARE DATA                                        #
+    ######################################################################################################
+
+    # Retrieve list of matrices
+    if useH:
+        W_list = [NMFobj.HMatrix[i].transpose() for i in range(len(NMFobj.HMatrix))]
+    else:
+        W_list = NMFobj.WMatrix
+
+    # Get W matrices corresponding to ranks
+    if ranks==None:
+        # Show the best ranks if no ranks were given
+        NMFobj.compute_OptKStats_NMF()
+        NMFobj.compute_OptK()
+        ranks = NMFobj.OptK
+        # If less than 2 ranks are optimal show error
+        if len(ranks) < 2:
+            raise ValueError(f"There are to few optimal ranks to show a river plot. Provide a list of at least two ranks out of {NMFobj.ranks}.")
+    else:
+        index = []
+        if type(ranks) != list:
+            raise TypeError(f"The ranks parameters must be a list not a {type(ranks)}")
+        if len(ranks) < 2:
+            raise ValueError(f"Provide a list of at least two ranks out of {NMFobj.ranks}.")
+        
+        # If ranks are specified (as a list) search the corresponding indices of the runs
+        for i, settings in enumerate(NMFobj.NMF_run_settings):
+            if settings["rank"] in ranks:
+                index.append(i)
+        W_list = [W_list[i] for i in index]
+
+    # Combine W (or H) matrices horizontally
+    W_combined = np.hstack(W_list)  
+
+    ######################################################################################################
+    #                                        CREATE NODE COLORS                                          #
+    ######################################################################################################
+
+    pca = PCA(n_components=3)
+    pca_transformed = pca.fit_transform(W_combined.T) 
+    # Normalize PCA results between 0 and 1
+    pca_normalized = np.apply_along_axis(lambda x: (x - np.min(x)) / (np.max(x) - np.min(x)), 0, pca_transformed)
+    
+    # Creating list of colors based on PCA
+    colors = [f'rgba({int(r*255)}, {int(g*255)}, {int(b*255)}, 0.9)' for r, g, b in pca_normalized]
+    
+    ######################################################################################################
+    #                                  CREATE VALUES FOR RIVER PLOT                                      #
+    ######################################################################################################
+
+    # Node names and index allocation
+    sig_ids = [f"Sig{r}_{i+1}" for r in ranks for i in range(r)]
+    sig_id_to_index = {sig_id: index for index, sig_id in enumerate(sig_ids)}
+
+    # Color allocation to the nodes
+    color_dict = dict(zip(sig_ids, colors))
+
+    # Get source, target and value for the Sankey diagram
+    edges_source = []
+    edges_target = []
+    edges_value = []
+
+    for i in range(len(W_list)-1):
+        W_k = W_list[i]
+        W_kplus = W_list[i+1]
+
+        # Non negative least square for width of edge between nodes
+        nnls_matrix = nnls_sol(W_kplus, W_k)
+
+        for m in range(nnls_matrix.shape[0]):
+            for n in range(nnls_matrix.shape[1]):
+                if nnls_matrix[m, n] > edges_cutoff:
+                    edges_source.append(f"Sig{W_k.shape[1]}_{n+1}")
+                    edges_target.append(f"Sig{W_kplus.shape[1]}_{m+1}")
+                    edges_value.append(nnls_matrix[m, n])
+
+    # Get edge colors, the mean color between the two nodes the edge is connecting
+    edge_color = []
+    for i in range(len(edges_source)):
+        source_color = color_dict[edges_source[i]]
+        target_color = color_dict[edges_target[i]]
+        edge_color.append(pc.find_intermediate_color(rgba_to_rgb_tuple(source_color), rgba_to_rgb_tuple(target_color), 0.5))
+   
+    edge_color = [rgb_to_rgba_string(col) for col in edge_color]
+
+    unique_targets = np.unique(edges_target)
+    normalized_values = []
+    # Normalize all values
+    for target in unique_targets:
+        mask = [edges_target[i] == target for i in range(len(edges_target))]
+        edges_to_target = [edges_value[i] for i in range(len(edges_target)) if mask[i]]
+        total_value = np.sum(edges_to_target)
+        normalized_values.append(edges_to_target/total_value)
+
+    edges_value_normalized = np.concatenate(normalized_values)
+    
+    edges_source = [sig_id_to_index[edge] for edge in edges_source]
+    edges_target = [sig_id_to_index[edge] for edge in edges_target]
+
+    # Prepare labels for nodes in river plot
+    if sig_labels:
+        # the whole labels overlap with too many ranks, so they are shorted to only provide the signature number as the rank is given by the x-axis label
+        if len(ranks) > 4:
+            label = [f"{i+1}" for r in ranks for i in range(r)]
+        else:
+            label = sig_ids
+    else:
+        label = ['']
+
+    ######################################################################################################
+    #                                        CREATE RIVER PLOT                                           #
+    ######################################################################################################
+
+    # Create Sankey Diagram
+    fig = go.Figure(go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=8,
+            line=dict(color="black", width=0),
+            label=label,
+            color=colors
+        ),
+        link=dict(
+            source=edges_source,
+            target=edges_target,
+            value=edges_value_normalized,
+            color=edge_color
+        )
+    ))
+
+    ######################################################################################################
+    #                                         LAST RANK LEGEND                                           #
+    ######################################################################################################
+
+    # Get the last ranks labels and indices of the nodes
+    last_column_labels = [label for label in sig_ids if f"Sig{max(ranks)}" in label] 
+    last_column_indices = [i for i, label in enumerate(sig_ids) if f"Sig{max(ranks)}" in label]
+   
+    # Add labels for the nodes representing the last rank
+    max_rank = max(ranks)
+
+    if sig_annot == None and sig_annot_recovery == False:
+        # In this case no labeling for the last rank's nodes is shown
+        last_node_labels = ['']*max_rank
+    elif sig_annot != None:
+        # In this case user defined labels for the last rank's nodes is shown
+        if sig_annot_recovery == True:
+            warnings.warn("You have provided your own signature annotation and set sig_annot_recovery to True. The annotations you provided will be used, if you want to see the annotations infered from the recovery plot set sig_annot to None and sig_annot_recovery to True.")
+        if type(sig_annot)==list and len(sig_annot) == max_rank:
+            last_node_labels = sig_annot
+        else:
+            warnings.warn("Your provided signature annotation is not of the correct form. It must be a list with its length being equal to the sum of the ranks.")
+            last_node_labels = ['']*max_rank
+    else:
+        # In this case annotations from the recovery plot are used as labels for the last rank's nodes
+        annot_df = {}
+        if sample_annot == None:
+            sample_annot = NMFobj.input_matrix["samples"]
+        annot_groups = list(set(sample_annot))
+        auc_dfs = recovery_plot(NMFobj, max_rank, sample_annot, path_to_save="recovery_for_Wannots")
+        for i in range(len(auc_dfs[0])):
+            # Get the p values in one row for each signature
+            pvals = [df["p"].iloc[i] for df in auc_dfs]
+            annots = []
+            for e, p in enumerate(pvals):
+                # Add the sample annotation to the signatures annotation if the p value is small
+                if p < 0.05:
+                    annots.append(annot_groups[e])
+            annot_df[f"Sig{max_rank}_{i+1}"] = annots
+        last_node_labels = [annot_df[key] for key in list(annot_df.keys())]    
+        # Start next annotation label in next line
+        last_node_labels = ["<br>".join(ticks) for ticks in last_node_labels]
+        # Add the node label (form Sig(rank)_(sig))
+        last_node_labels = [last_column_labels[i]+": "+last_node_labels[i] for i in range(len(last_node_labels))]
+        last_node_labels.reverse()
+    
+    # Define the y positions for the labels
+    y_pos = list(np.linspace(0, 1, num=len(last_node_labels)))
+    # Save the colors of the last nodes to color the labels in the same way
+    colors = list(fig.data[0]['node']['color'][min(last_column_indices):(max(last_column_indices)+1)])
+    colors.reverse()
+    
+    annotations = []
+    for i in range(len(last_column_indices)):
+        annotations.append(dict(
+            x=1.05,
+            y=y_pos[i],
+            xref='paper',
+            yref='paper',
+            text=last_node_labels[i],
+            showarrow=False,
+            font=dict(size=10, color=colors[i]),
+            xanchor='left'
+        ))
+    
+    # Create x axis labels
+    rank_positions = list(np.linspace(0, 1, num=len(ranks)))
+    rank_labels = [f"K{r}" for r in ranks]
+
+    for i, rank in enumerate(rank_labels):
+        annotations.append(
+            dict(
+                x=rank_positions[i],
+                y=-0.1,  # Position below the plot
+                xref="paper",
+                yref="paper",
+                text=rank,
+                showarrow=False,
+                font=dict(size=14),
+                xanchor='center'
+            )
+        )
+
+    # Add x-axis title as an annotation
+    annotations.append(
+        dict(
+            x=0.5,  
+            y=-0.2,  
+            text="Factorization Rank", 
+            showarrow=False,
+            font=dict(size=20) 
+        )
+    )
+
+
+    longest_label_length = max(len(line) for label in last_node_labels for line in label.split('<br>'))
+    # Update layout with annotations
+    fig.update_layout(
+        title="Riverplot of Signature Stability",
+        font_size=16,
+        annotations=annotations,
+        margin=dict(l=50, r=50+(6*longest_label_length), t=50, b=80),
+        width = 150+len(ranks)*150
+    )
+    
+    if path_to_save != None:
+        # Save the figure
+        pio.write_image(fig, f"{path_to_save}.png")
+
+
+def rgba_to_rgb_tuple(rgba_str):
+    # Use regex to extract the numbers
+    match = re.search(r'rgba?\((\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)', rgba_str)
+    if match:
+        return tuple(map(int, match.groups()[:3]))
+    else:
+        raise ValueError(f"Invalid rgba color string: {rgba_str}")
+
+def rgb_to_rgba_string(rgb_tuple, alpha=0.9):
+    # Ensure the RGB tuple contains exactly three elements
+    if len(rgb_tuple) != 3:
+        raise ValueError("RGB tuple must have exactly three elements.")
+    
+    # Format the RGB values with the alpha value
+    return f'rgba({rgb_tuple[0]}, {rgb_tuple[1]}, {rgb_tuple[2]}, {alpha})'
+
+
+def nnls_sol(B, A):
+    X = np.zeros((B.shape[1], A.shape[1]))
+    for i in range(B.shape[1]):
+        X[i, :] = nnls(A, B[:, i])[0]
+
+    return X
