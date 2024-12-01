@@ -17,6 +17,11 @@ def setup_rds(path):
     -------
         numpy matrix extracted from the RData file
     """
+
+    if not path.endswith('.rds'):
+        # Raise a ValueError if the file doesn't end with .rds
+        raise ValueError(f"Invalid file extension for {path}. Expected a .rds file.")
+    
     r_obj = rds2py.read_rds(path)
     mat = None
 
@@ -74,6 +79,10 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
         AnnData object containing the provided information
     """
 
+    if not path_to_rdsmatrix.endswith('.rds'):
+        # Raise a ValueError if the file doesn't end with .rds
+        raise ValueError(f"Invalid file extension for {path_to_rdsmatrix}. Expected a .rds file.")
+    
     #----------------------------------------------------------------------------------------------------------------#
     #                            Get the gene expression matrix for AnnData, saved in X                              #
     #----------------------------------------------------------------------------------------------------------------#
@@ -101,6 +110,10 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
         gene_annots = gene_annot
     
     elif path_to_rdsannot != None:
+        if not path_to_rdsannot.endswith('.rds'):
+            # Raise a ValueError if the file doesn't end with .rds
+            raise ValueError(f"Invalid file extension for {path_to_rdsannot}. Expected a .rds file.")
+    
         annot = rds2py.read_rds(path_to_rdsannot)
         print()
         if gene_index < 0 or gene_index >= len(annot['attributes']['names']['data']):
@@ -131,6 +144,10 @@ def rds_to_ann(path_to_rdsmatrix, path_to_rdsannot = None, path_to_rdsmeta = Non
         sample_annots = sample_annot
 
     elif path_to_rdsmeta != None:
+        if not path_to_rdsmeta.endswith('.rds'):
+            # Raise a ValueError if the file doesn't end with .rds
+            raise ValueError(f"Invalid file extension for {path_to_rdsmeta}. Expected a .rds file.")
+        
         meta = rds2py.read_rds(path_to_rdsmeta)
         print()
         if sample_index < 0 or sample_index >= len(meta['attributes']['names']['data']):
