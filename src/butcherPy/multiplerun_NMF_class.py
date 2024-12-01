@@ -19,6 +19,7 @@ from sklearn.cluster import KMeans
 import seaborn as sns
 import pandas as pd
 from matplotlib.colors import Normalize
+import warnings
 
 ## DEFINE THE NMF OBJECT CLASS -------------------------------------------------#
 class multipleNMFobject:
@@ -95,10 +96,9 @@ class multipleNMFobject:
                     index.append(i)
                     found_rank.append(settings["rank"])
         
-        if len(index)==0:
-            print("No NMF runs have been performed with the indicated ranks, try one of {}".format(', '.join(map(str, self.ranks))))
-        elif ranks != "all" and len(index)!=len(ranks):
-            print("Not for all ranks there exist a W matrix, only ranks {} were found".format(', '.join(map(str, found_rank))))
+        assert len(index)!=0, "No NMF runs have been performed with the indicated ranks, try one of {}".format(', '.join(map(str, self.ranks)))
+        if ranks != "all" and len(index)!=len(ranks):
+            warnings.warn("Not for all ranks there exist a W matrix, only ranks {} were found".format(', '.join(map(str, found_rank))))
         
         return [self.WMatrix[i] for i in index]
 
@@ -124,10 +124,9 @@ class multipleNMFobject:
                     index.append(i)
                     found_rank.append(settings["rank"])
         
-        if len(index)==0:
-            print("No NMF runs have been performed with the indicated ranks, try one of {}".format(', '.join(map(str, self.ranks))))
-        elif ranks != "all" and len(index)!=len(ranks):
-            print("Not for all ranks there exist a H matrix, only ranks {} were found".format(', '.join(map(str, found_rank))))
+        assert len(index)!=0, "No NMF runs have been performed with the indicated ranks, try one of {}".format(', '.join(map(str, self.ranks)))
+        if ranks != "all" and len(index)!=len(ranks):
+            warnings.warn("Not for all ranks there exist a H matrix, only ranks {} were found".format(', '.join(map(str, found_rank))))
         
         return [self.HMatrix[i] for i in index]
     
@@ -136,7 +135,7 @@ class multipleNMFobject:
     #                               NMF Normalization                              #
     #------------------------------------------------------------------------------#
         
-    def normalise_W(self, ranks="all"):
+    def normalize_W(self, ranks="all"):
         """
         Normalises the W matrix signatures for the indicated ranks (sum of each column = 1).
 
@@ -155,25 +154,24 @@ class multipleNMFobject:
                 if settings["rank"] in ranks:
                     index.append(i)
 
-        if len(index)==0:
-            print("There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks))))
-        else:
-            # Do the normalisation for the previously identified indices
-            for i in index:
+        assert len(index)!=0, "There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks)))
+        
+        # Do the normalisation for the previously identified indices
+        for i in index:
 
-                column_sums = self.WMatrix[i].sum(axis=0) 
-                # If the W matrix was already normalised, don't normalise again
-                if np.all(np.isclose(column_sums, 1)) == True:
-                    print('W matrix was already normalised for W matrix with index', i)
-                            
-                else:
-                    W_norm = self.WMatrix[i]/column_sums
-                    # Transform the H matrix in a way that the multiplication of the
-                    # normalised W and the new H is the same as before
-                    H_new = self.HMatrix[i]*column_sums[:, np.newaxis]
-                    
-                    self.WMatrix[i] = W_norm
-                    self.HMatrix[i] = H_new
+            column_sums = self.WMatrix[i].sum(axis=0) 
+            # If the W matrix was already normalised, don't normalise again
+            if np.all(np.isclose(column_sums, 1)) == True:
+                print('W matrix was already normalised for W matrix with index', i)
+                        
+            else:
+                W_norm = self.WMatrix[i]/column_sums
+                # Transform the H matrix in a way that the multiplication of the
+                # normalised W and the new H is the same as before
+                H_new = self.HMatrix[i]*column_sums[:, np.newaxis]
+                
+                self.WMatrix[i] = W_norm
+                self.HMatrix[i] = H_new
                 
     def regularize_W(self, ranks="all"):
         """
@@ -194,22 +192,20 @@ class multipleNMFobject:
                 if settings["rank"] in ranks:
                     index.append(i)
 
-        if len(index)==0:
-            print("There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks))))
-        else:
+        assert len(index)!=0,"There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks)))
 
-            for i in index:
-                tempW =self.WMatrix[i]
-                tempH = self.HMatrix[i]
-                
-                # Maximal exposure value per row
-                normFactor = np.max(tempW, axis=0, keepdims=True)
+        for i in index:
+            tempW =self.WMatrix[i]
+            tempH = self.HMatrix[i]
+            
+            # Maximal exposure value per row
+            normFactor = np.max(tempW, axis=0, keepdims=True)
 
-                self.WMatrix[i] = tempW/normFactor
-                self.HMatrix[i] = tempH*normFactor.T
+            self.WMatrix[i] = tempW/normFactor
+            self.HMatrix[i] = tempH*normFactor.T
 
 
-    def normalise_H(self, ranks="all"):     
+    def normalize_H(self, ranks="all"):     
         """
         Normalises the H matrix exposures for the indicated ranks (sum of each row = 1).
 
@@ -228,26 +224,25 @@ class multipleNMFobject:
                 if settings["rank"] in ranks:
                     index.append(i)
 
-        if len(index)==0:
-            print("There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks))))
-        else:
-            # Do the normalisation for the previously identified indices
-            for i in index:
+        assert len(index)!=0, "There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks)))
 
-                row_sums = self.HMatrix[i].sum(axis=1)
+        # Do the normalisation for the previously identified indices
+        for i in index:
+
+            row_sums = self.HMatrix[i].sum(axis=1)
+            
+            # If the H matrix was already normalised, don't normalise again
+            if np.all(np.isclose(row_sums, 1)) == True:
+                print('H matrix was already normalised for H matrix with index', i)
+                        
+            else:
+                H_norm = self.HMatrix[i]/row_sums[:, np.newaxis]
+                # Transform the W matrix in a way that the multiplication of the
+                # normalised H and the new W is the same as before
+                W_new = self.WMatrix[i]*row_sums
                 
-                # If the H matrix was already normalised, don't normalise again
-                if np.all(np.isclose(row_sums, 1)) == True:
-                    print('H matrix was already normalised for H matrix with index', i)
-                            
-                else:
-                    H_norm = self.HMatrix[i]/row_sums[:, np.newaxis]
-                    # Transform the W matrix in a way that the multiplication of the
-                    # normalised H and the new W is the same as before
-                    W_new = self.WMatrix[i]*row_sums
-                    
-                    self.HMatrix[i] = H_norm
-                    self.WMatrix[i] = W_new
+                self.HMatrix[i] = H_norm
+                self.WMatrix[i] = W_new
 
     
     def regularize_H(self, ranks="all"):
@@ -269,19 +264,17 @@ class multipleNMFobject:
                 if settings["rank"] in ranks:
                     index.append(i)
 
-        if len(index)==0:
-            print("There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks))))
-        else:
+        assert len(index)!=0, "There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks)))
 
-            for i in index:
-                tempW =self.WMatrix[i]
-                tempH = self.HMatrix[i]
-                
-                # Maximal exposure value per row
-                normFactor = np.max(tempH, axis=1, keepdims=True)
+        for i in index:
+            tempW =self.WMatrix[i]
+            tempH = self.HMatrix[i]
+            
+            # Maximal exposure value per row
+            normFactor = np.max(tempH, axis=1, keepdims=True)
 
-                self.WMatrix[i] = tempW*normFactor.T
-                self.HMatrix[i] = tempH/normFactor
+            self.WMatrix[i] = tempW*normFactor.T
+            self.HMatrix[i] = tempH/normFactor
 
 
     #------------------------------------------------------------------------------#
@@ -314,10 +307,10 @@ class multipleNMFobject:
                 if settings["rank"] in absent_ranks:
                     index.append(i)
 
-            if len(index)==0:
-                print("There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks))))
- 
-        
+            assert (len(index)!=0 or (len(ranks)!=len(absent_ranks))), "There was no run conducted with the indicated rank(s), try one of {}".format(', '.join(map(str, self.ranks)))
+            if len(index) != len(absent_ranks):
+                warnings.warn("Be aware, that you provided at least one invalid rank.")
+
             for i in index:
                 #----------------------------------------------------------------------------#
                 #                            Frobenius error stats                           #
@@ -392,7 +385,8 @@ class multipleNMFobject:
                 
                 self.OptKStats.append(stats)
 
-        return self.OptKStats
+        OptKs_to_return = [optK for optK in self.OptKStats if optK["rank"] in ranks]
+        return OptKs_to_return
     
 
     def compute_OptK(self):
@@ -410,7 +404,9 @@ class multipleNMFobject:
                         print("The optimal K statistics for some rank seem to have missing some keys, please run the function compute_OptKStats_NMF() for all ranks that you want to compare.")
         else:
             print("At least two ranks need to be evaluated by compute_OptKStat_NMF(), so that a comparison can be made.")
-
+            self.OptK = None
+            return self.OptK
+        
         cophenetic_values = [OptK['copheneticCoeff'] for OptK in self.OptKStats]
         meanAmari_values = [OptK['meanAmariDist'] for OptK in self.OptKStats]
         
@@ -420,9 +416,9 @@ class multipleNMFobject:
         
         max_cophenetic_index = np.where(max_cophenetic_index)
         min_amari_index = np.where(min_amari_index)
-
         # Intersect the indices and get the ranks for those indices as the optimal ranks.
         intersection = np.intersect1d(max_cophenetic_index, min_amari_index)
+
         OptKs = [self.OptKStats[i] for i in intersection]
         OptKs = [OptK["rank"] for OptK in OptKs]
 
@@ -430,10 +426,10 @@ class multipleNMFobject:
 
         if len(self.OptK) == 1:
             print("The optimal factorisation rank from the given ranks is ", self.OptK[0])
-        elif len(OptKs) == 0:
+        elif len(self.OptK) == 0:
             print("No optimal K could be determined from the Optimal K stat.")
         else:
-            print("The optimal factorisation rank from the given ranks are ", self.OptK)
+            print("The optimal factorisation ranks from the given ranks are ", self.OptK)
         
         return OptKs
 
