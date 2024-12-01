@@ -2,7 +2,6 @@ import unittest
 import numpy as np
 import pandas as pd
 import anndata as ad
-import warnings
 import sys
 # If running from inside ButcherPy
 sys.path.append("../ButcherPy")
@@ -16,7 +15,6 @@ class TestNMF(unittest.TestCase):
 
     def setUp(self):
         # create simple test matrix in all three datatypes that can be used
-        #self.matrix = np.array([[1, 2], [3, 4]], dtype=np.float32)
         self.matrix = np.random.rand(10, 4)
         cols = [f"Sample_{i+1}" for i in range(self.matrix.shape[1])]
         rows = [f"Gene_{i+1}" for i in range(self.matrix.shape[0])]
@@ -138,7 +136,6 @@ class TestNMF(unittest.TestCase):
         self._test_multipleNMFobject(NMF, [1])
         self.assertEqual(str(cm.warning), "Your input has only 1 entry in either of the dimensions. Be aware that the NMF algorithm might not be able to catch any patterns in the vector. Check if your matrix input has the shape you expected or if the NMF algorithm makes sense to use for your problem.")
         
-        # CREATE ERROR FOR THE CASE THAT SOMETHING HAS THE WRONG DATATYPE; FOR EXAMPLE RANKS ONLY BEING AN INTEGER
         rank = 3
         with self.assertRaises(TypeError):
             multiple_rank_NMF(
@@ -153,7 +150,7 @@ class TestNMF(unittest.TestCase):
 
 
     def test_leukemiadata(self):
-        # WRITE GOOD ERRORS: the rdata reading, should give reasonable error if it is not a rdata file
+        
         path_to_rdata = "../data/GSE_bpd/GSE53987_2.rds"
         path_to_genes = "../data/GSE_bpd/GSE53987_2_annots.rds"
         path_to_samples = "../data/GSE_bpd/GSE53987_2_metadata.rds"
@@ -179,19 +176,84 @@ class TestNMF(unittest.TestCase):
         mean_errors = [np.mean(np.abs(NMF.input_matrix["gene_expression"]-rec_matrices[i])) for i in range(len(rec_matrices))]
         frob_errors = [np.min(NMF.frobenius[i]) for i in range(len(rec_matrices))]
 
-        print(mean_errors)
-        print(frob_errors)
-
         self.assertTrue(any(np.mean(error) < 0.2 for error in mean_errors), "For no rank the reconstructed matrix is close enough to the original matrix")
         self.assertTrue(all(error < 0.1 for error in frob_errors), "For no rank the reconstructed matrix has a small enough frobenius error")
+   
     
-        
+    def test_multiple_rank_NMF_empty_input(self):
+        empty_matrix = np.array([[]])
+        with self.assertRaises(ValueError):
+            multiple_rank_NMF(
+                empty_matrix,
+                [1, 2],
+                self.n_initializations,
+                self.iterations,
+                self.seed,
+                self.stop_threshold,
+                self.nthreads
+            )
 
-    #def test_multiRankNMF_different_inputs(self):
-    #    inputs = [self.matrix, self.df, self.adata]
-    #    for input in inputs:
-    #        with self.subTest(input=input):
-    #            self.test_multiRankNMF_different_inputs(input)
+    def test_run_NMF_invalid_rank(self):
+        with self.assertRaises(ValueError):
+            run_NMF(
+                self.matrix,
+                0,  # Invalid rank
+                self.n_initializations,
+                self.iterations,
+                self.seed,
+                self.stop_threshold,
+                self.nthreads
+            )
+
+    def test_run_NMF_invalid_input_type(self):
+        with self.assertRaises(TypeError):
+            run_NMF(
+                "invalid_input",  # Invalid input type
+                self.rank,
+                self.n_initializations,
+                self.iterations,
+                self.seed,
+                self.stop_threshold,
+                self.nthreads
+            )
+
+    def test_multiple_rank_NMF_invalid_rank_list(self):
+        with self.assertRaises(ValueError):
+            multiple_rank_NMF(
+                self.matrix,
+                [0, -1],  # Invalid ranks
+                self.n_initializations,
+                self.iterations,
+                self.seed,
+                self.stop_threshold,
+                self.nthreads
+            )
+
+    def test_run_NMF_high_rank(self):
+        high_rank = min(self.matrix.shape) + 1
+        with self.assertWarns(UserWarning):
+            run_NMF(
+                self.matrix,
+                high_rank,
+                self.n_initializations,
+                self.iterations,
+                self.seed,
+                self.stop_threshold,
+                self.nthreads
+            )
+
+    def test_multiple_rank_NMF_high_rank(self):
+        high_ranks = [min(self.matrix.shape) + 1, min(self.matrix.shape) + 2]
+        with self.assertWarns(UserWarning):
+            multiple_rank_NMF(
+                self.matrix,
+                high_ranks,
+                self.n_initializations,
+                self.iterations,
+                self.seed,
+                self.stop_threshold,
+                self.nthreads
+            )
 
 
 if __name__ == '__main__':
