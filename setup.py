@@ -5,7 +5,7 @@ setup(
     version="0.1.0",                     
     author="Leonie Boland",                  
     author_email="hw199@stud.uni-heidelberg.de", 
-    description="A brief description of your package",  # Short description
+    description="This package provides functions to perform non-negative matrix factorization using Tensorflow", 
     long_description=open("README.md").read(),  
     long_description_content_type="text/markdown", 
     url="https://github.com/hdsu-bioquant/ButcherPy",
