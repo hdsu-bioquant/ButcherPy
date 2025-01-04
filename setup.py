@@ -8,7 +8,7 @@ setup(
     description="A brief description of your package",  # Short description
     long_description=open("README.md").read(),  
     long_description_content_type="text/markdown", 
-    url="https://github.com/yourusername/repo",  # GitHub repo URL
+    url="https://github.com/hdsu-bioquant/ButcherPy",
     packages=find_packages(),             
     classifiers=[
         "Programming Language :: Python :: 3",
