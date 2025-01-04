@@ -15,9 +15,19 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",  # Choose a license
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.6",              
+    python_requires=">=3.10",              
     install_requires=[
-        # List your package's dependencies here, e.g.:
-        # "numpy>=1.21.0",
+        "anndata>=0.11.1",
+        "matplotlib>=3.8.2",
+        "numpy>=2.2.1",
+        "pandas>=2.2.3",
+        "plotly>=5.23.0",
+        "rds2py>=0.4.2",
+        "scikit_learn>=1.4.0",
+        "scikit_learn_extra>=0.3.0",
+        "scipy>=1.15.0",
+        "seaborn>=0.13.2",
+        "setuptools>=59.5.0",
+        "torch>=1.13.1"
     ],
 )
