@@ -12,7 +12,7 @@ If you have access to Bioquant's workstation, follow these steps:
    ```bash
    git clone https://github.com/hdsu-bioquant/ButcherPy.git
    ```
-   2. Start the `butcherpy` Docker container:
+2. Start the `butcherpy` Docker container:
   ```bash
   docker run --gpus device=1 -p 8888:8888 --rm -ti -v /raid/username/projects/:$HOME pytorch:butcherpy
   ```
