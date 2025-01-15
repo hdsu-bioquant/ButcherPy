@@ -14,8 +14,7 @@ If you have access to Bioquant's workstation, follow these steps:
 
 2. Start the `butcherpy` Docker container. To do that replace `device=1`with the device ID that has available memory, and substitute `username` with your Bioquant username in the following command. For information on checking GPU availability, refer to [DGX Workstation Readme](https://github.com/hdsu-bioquant/dgx-workstation).
    ```bash
-   docker run --gpus device=1 -p 8888:8888 --rm -ti -v                   
-   /raid/username/projects/:$HOME pytorch:butcherpy
+   docker run --gpus device=1 -p 8888:8888 --rm -ti -v /raid/username/projects/:$HOME pytorch:butcherpy
    
 3. In the running Docker container navigate to the directory where you cloned this repository:
    ```bash
