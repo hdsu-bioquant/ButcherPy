@@ -22,7 +22,7 @@ If you have access to Bioquant's workstation, follow these steps:
 
 At this point, you are ready to use ***ButcherPy*** as the Docker container comes pre-installed with all required packages.
 
-***Note***: The Docker container only includes ***ButcherPy***'s dependencies. Additional packages like `scanpy` (commonly needed for AnnData) are not pre-installed. If you need extra packages, extend the `butcherpy` Docker image with the required packages. Be sure to save the customized image with a unique namr to keep the official `butcherpy` image unchanged. More details on this process are available in the [DGX Workstation Readme](https://github.com/hdsu-bioquant/dgx-workstation).
+***Note***: The Docker container only includes ***ButcherPy***'s dependencies. Additional packages like `scanpy` (commonly needed for AnnData) are not pre-installed. If you need extra packages, extend the `butcherpy` Docker image with the required packages. Be sure to save the customized image with a unique name to keep the official `butcherpy` image unchanged. More details on this process are available in the [DGX Workstation Readme](https://github.com/hdsu-bioquant/dgx-workstation).
 
 ### Without Bioquant Workstation Access
 If you do not have access to the Bioquant GPU workstation:
