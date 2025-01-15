@@ -11,16 +11,15 @@ If you have access to Bioquant's workstation, follow these steps:
 1. Clone this repository:
    ```bash
    git clone https://github.com/hdsu-bioquant/ButcherPy.git
-   ```
+
 2. Start the `butcherpy` Docker container:
-  ```bash
-  docker run --gpus device=1 -p 8888:8888 --rm -ti -v /raid/username/projects/:$HOME pytorch:butcherpy
-  ```
-  Replace `device=1`with the device ID that has available memory, and substitute `username` with your Bioquant username. For information on checking GPU availability, refer to [DGX Workstation Readme](https://github.com/hdsu-bioquant/dgx-workstation).
+   ```bash
+   docker run --gpus device=1 -p 8888:8888 --rm -ti -v                   
+   /raid/username/projects/:$HOME pytorch:butcherpy
+
+Replace `device=1`with the device ID that has available memory, and substitute `username` with your Bioquant username. For information on checking GPU availability, refer to [DGX Workstation Readme](https://github.com/hdsu-bioquant/dgx-workstation).
 3. In the running Docker container navigate to the directory where you cloned this repository:
-  ```bash
-  cd your_directory/ButcherPy
-  ```
+   ```cd your_directory/ButcherPy```
 
 At this point, you are ready to use ***ButcherPy*** as the Docker container comes pre-installed with all required packages.
 ***Note***: The Docker container only includes ***ButcherPy***'s dependencies. Additional packages like `scanpy` (commonly needed for AnnData) are not pre-installed. If you need extra packages, extend the `butcherpy` Docker image with the required packages. Be sure to save the customized image with a unique namr to keep the official `butcherpy` image unchanged. More details on this process are available in the [DGX Workstation Readme](https://github.com/hdsu-bioquant/dgx-workstation).
@@ -31,12 +30,12 @@ Otherwise, without Bioquant workstation access, you can do the following:
 1. Clone this repository:
    ```bash
    git clone https://github.com/hdsu-bioquant/ButcherPy.git
-   ```
+   
 2. Use a python environment of your choice (e.g., Docker, virtualenv, etc.) and install all necessary packages specified in `setup.py`. Pay attention to version requirements.
 3. Navigate to the repository directory:
    ```bash
    cd your_directory/ButcherPy
-   ```
+   
 
 You are now ready to use ***ButcherPy***.
 
