@@ -20,8 +20,8 @@ If you have access to Bioquant's workstation, follow these steps:
   Replace `device=1`with the device ID that has available memory, and substitute `username` with your Bioquant username. For information on checking GPU availability, refer to [DGX Workstation Readme](https://github.com/hdsu-bioquant/dgx-workstation).
   
 3. In the running Docker container navigate to the directory where you cloned this repository:
-   
-   ```cd your_directory/ButcherPy```
+   ```bash
+   cd your_directory/ButcherPy
 
 At this point, you are ready to use ***ButcherPy*** as the Docker container comes pre-installed with all required packages.
 ***Note***: The Docker container only includes ***ButcherPy***'s dependencies. Additional packages like `scanpy` (commonly needed for AnnData) are not pre-installed. If you need extra packages, extend the `butcherpy` Docker image with the required packages. Be sure to save the customized image with a unique namr to keep the official `butcherpy` image unchanged. More details on this process are available in the [DGX Workstation Readme](https://github.com/hdsu-bioquant/dgx-workstation).
