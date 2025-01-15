@@ -34,7 +34,6 @@ Otherwise, without Bioquant workstation access, you can do the following:
 3. Navigate to the repository directory:
    ```bash
    cd your_directory/ButcherPy
-   
 
 You are now ready to use ***ButcherPy***.
 
