@@ -1,6 +1,6 @@
 # ButcherPy 
   
-***ButcherPy*** is the Python (re)implementation of the R package ***[ButchR]***(https://github.com/hdsu-bioquant/ButchR). This package provides functions to perform non-negative matrix factorization (NMF) using Tensorflow. 
+***ButcherPy*** is the Python (re)implementation of the R package [***ButchR***](https://github.com/hdsu-bioquant/ButchR). This package provides functions to perform non-negative matrix factorization (NMF) using Tensorflow. 
 
 You can use ***ButcherPy*** to obtain molecular signatures from various types of data - such as gene expression or epigenomics datasets. This software also provides intuitive interpretation of results through extensive visualization options.
 
