@@ -22,7 +22,7 @@ setup(
         "numpy>=2.2.1",
         "pandas>=2.2.3",
         "plotly>=5.23.0",
-        "rds2py>=0.4.2",
+        "rds2py==0.4.2",
         "scikit_learn>=1.4.0",
         "scikit_learn_extra>=0.3.0",
         "scipy>=1.15.0",
