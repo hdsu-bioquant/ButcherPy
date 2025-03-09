@@ -410,7 +410,7 @@ class multipleNMFobject:
         cophenetic_values = [OptK['copheneticCoeff'] for OptK in self.OptKStats]
         meanAmari_values = [OptK['meanAmariDist'] for OptK in self.OptKStats]
         
-        # Getting the indices of the runs that have lower (respectively higher) cophenetic (respectively amari) values than its neighbours.
+        # Getting the indices of the runs that have higher (respectively lower) cophenetic (respectively amari) values than its neighbours.
         max_cophenetic_index = np.logical_and(np.roll(cophenetic_values, 1) <= cophenetic_values, np.roll(cophenetic_values, -1) <= cophenetic_values)
         min_amari_index = np.logical_and(np.roll(meanAmari_values, 1) >= meanAmari_values, np.roll(meanAmari_values, -1) >= meanAmari_values)
         

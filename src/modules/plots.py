@@ -20,228 +20,6 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from sklearn.decomposition import PCA
 
-def H_heatmap_backup(NMFobj, ranks, sample_annot = None, path_to_save = None):
-    """
-    Creates a heatmap of H matrix and saves it at the given path.
-
-    Parameters
-    ----------
-    NMFobj
-        object from the multipleNMFobject class containing the H matrices
-    ranks
-        list of integers, the matrix resulting from the NMF run with this ranks will be shown in the heatmap
-    sample_annot
-        None, use the sample annotations that have been saved in the NMF object OR
-        list, with the same length as the number of samples will be used as the sample annotations
-    path_to_save
-        string, path to a directory, including the name of the file to save
-    
-    Returns
-    -------
-    annotation_colors
-        dictionary of tuples with three values corresponding to the RGB values for the colors used for the sample annotations, mainly to use same colors in recovery plot
-    rank_colors
-        dictionary of tuples with three values corresponding to the RGB values for the colors used for the signature annotations, mainly to use same colors in recovery plot
-    """
-
-    ########################################################################################################
-    #               REGULARIZE H MATRICES FOR PROVIDED RANKS AND CONNECT THE MATRICES INTO ONE             #
-    ########################################################################################################
-    
-    NMFobj.regularize_H(ranks)
-    regH = NMFobj.get_H(ranks)
-
-    ranks.sort()
-    if len(ranks)>1:
-        matrices = []
-        for i in range(len(ranks)):
-            matrices.append(regH[i])
-        regH = [np.vstack(matrices)]
-
-
-    ########################################################################################################
-    #                           CALCULATE LINKAGE AND DEFINE DENDROGRAM                                    # 
-    ########################################################################################################
- 
-    # Override the default linewidth
-    matplotlib.rcParams['lines.linewidth'] = 0.8
-    # Perform hierarchical clustering
-    linkage = hierarchy.linkage(regH[0].transpose(), method='complete', metric='euclidean')
-    dendro = hierarchy.dendrogram(linkage, no_plot=True)
-
-    # Reorder data based on dendrogram leaves
-    idx = dendro['leaves']
-    data_ordered = regH[0][:, idx]
-
-
-    ########################################################################################################
-    #                                         CREATE THE HEATMAP                                           # 
-    ########################################################################################################
-
-    # Plot the heatmap with reordered data
-    fig, ax = plt.subplots(figsize=(22, 15))
-    
-    # Main heatmap with continuous colorbar on the right
-    heatmap = sns.heatmap(data_ordered, cmap='viridis', ax=ax, cbar=True, cbar_kws={"shrink": 0.8, "location": "right", "anchor": (-0.5, 0)})
-    plt.xticks([])
-    yticks = ["Sig{}_{}".format(rank, i+1) for rank in ranks for i in range(rank)]
-    plt.yticks(np.arange(data_ordered.shape[0]) + 0.5, yticks, rotation=0, fontsize=15)  # Adjust the yticks positions if needed
-    plt.xlabel('Samples', fontsize=23, labelpad=15)
-
-    # Adapt the colorbar
-    cbar = heatmap.collections[0].colorbar
-    cbar.ax.set_title('Exposure', pad=8, weight = 'bold', fontsize=15)
-
-    cbar.set_ticks([0.2, 0.4, 0.6, 0.8])
-    cbar.ax.tick_params(labelsize=15)
-
-    cbar.ax.text(1.1, 0.02, 'Low', ha='left', va='center', transform=cbar.ax.transAxes, fontsize=15)
-    cbar.ax.text(1.1, 0.98, 'High', ha='left', va='center', transform=cbar.ax.transAxes, fontsize=15)
-
-
-    ########################################################################################################
-    #  CREATE COLORBAR ON THE RIGHT OF HEATMAP WITH COLORS DEFINING THE RANK MEMBERSHIP OF THE SIGNATURES  # 
-    ########################################################################################################
-    
-    rank_numbers = [rank for rank in ranks for _ in range(rank)]
-    rank_labels = ["Rank "+str(rank) for rank in rank_numbers]
-    
-    # In case that only one rank is given, I want to create different colors for all signatures for better
-    # recognition when creating the recovery plot
-    if len(ranks)==1:
-
-        palette2 = sns.color_palette("pastel")
-        if len(rank_numbers) > len(palette2):
-            palette2 += sns.color_palette("muted") 
-
-        #sigs = ["Sig " + str(j+1) for j in range(ranks[0])]
-        sigs = ["Sig{}_{}".format(rank, i+1) for rank in ranks for i in range(rank)]
-        rank_colors = {}
-        for k, sig in enumerate(sigs):
-            rank_colors[str(sig)] = palette2[k]
-
-        rank_mapped_colors = [rank_colors[sig] for sig in sigs]
-        rank_mapped_colors.reverse()
-
-    # In case that multiple ranks are given, define for each rank one color and for each signature belonging
-    # to that rank a different shade of that color
-    else:
-
-        rank_labels2 = [f'Sig{rank}_{j+1}' for rank in ranks for j in range(rank)]
-
-        unique_ranks = np.unique(rank_numbers)
-
-        # Base palette with distinct colors for each unique rank
-        palette2 = sns.color_palette("pastel")
-        if len(np.unique(rank_labels)) > len(palette2):
-            palette2 += sns.color_palette("muted") 
-
-        # Dictionary to hold the color shades for each rank
-        rank_colors = {}
-
-        for i, rank in enumerate(unique_ranks):
-            # Generate a gradient of shades for the current rank
-            shades = sns.light_palette(palette2[i], n_colors=rank_numbers.count(rank)+1)
-            shades = shades[1:]
-            for j in range(rank_numbers.count(rank)):
-                rank_colors[f'Sig{rank}_{j+1}'] = shades[j]
-
-        # Define color for each rank annotation
-        rank_mapped_colors = [rank_colors[rank] for rank in rank_labels2]
-        rank_mapped_colors.reverse()
-
-    # Create the colormap according to the colors
-    cmap_rank = ListedColormap(rank_mapped_colors)
-    cmap_rank = plt.colorbar(ScalarMappable(cmap=cmap_rank), ax=ax, orientation='vertical', location='right', anchor = (0, 0), shrink = 0.8, ticks = [i+1 for i in range(len(ranks))])
-    cmap_rank.outline.set_visible(False)
-
-    # Calculate tick positions, so that the label is in the middle of the corresponding color and add square brackets
-    cbartop = 1
-    sumrank = np.sum(ranks)
-    cmap_rank.set_ticks([])
-    ticks = np.unique(rank_labels).tolist()
-    ticks.reverse()
-    # Add square brackets
-    cbartop = 1
-    for rank in ranks:
-        procent = rank / sumrank
-        start = cbartop - procent
-        mid = cbartop - (procent / 2)
-        end = cbartop
-        cbartop -= procent
-
-        # Draw the square bracket
-        cmap_rank.ax.plot([1.25, 1.25], [start, end], color='black', linewidth=1.5, transform=cmap_rank.ax.transAxes, clip_on=False)
-        cmap_rank.ax.plot([1.05, 1.25], [end, end], color='black', linewidth=1.5, transform=cmap_rank.ax.transAxes, clip_on=False)
-        cmap_rank.ax.plot([1.05, 1.25], [start, start], color='black', linewidth=1.5, transform=cmap_rank.ax.transAxes, clip_on=False)
-
-        # Adjust tick label position
-        cmap_rank.ax.text(1.45, mid, ticks.pop(), ha='left', va='center', transform=cmap_rank.ax.transAxes, fontsize=15)
-
-    
-    ########################################################################################################
-    #                    CREATE COLORBAR ON TOP OF THE HEATMAP WITH SAMPLE ANNOTATIONS                     # 
-    ########################################################################################################
-
-    # Extract the column annotations
-    if sample_annot is None:
-        annotations = NMFobj.input_matrix["samples"]
-    else:
-        annotations = sample_annot
-    
-    # Reorder the annotations based on dendrogram leaves (same way as columns of data)
-    annotations = [annotations[i] for i in idx]
-
-    unique_annotations = np.unique(annotations)
-    
-    # Define initial color palette "Paired" in reverse seems most appealing combination with the heatmap colors
-    palette = sns.color_palette("Paired")
-    palette.reverse()
-    # If there are more unique annotations than colors in the palette, extend the palette
-    if len(unique_annotations) > len(palette):
-        palette += sns.color_palette("Set2")
-
-    # ERROR IF PALETTE IS NOT LONG ENOUGH
-    # Define color for each sample annotation
-    annotation_colors = {annot: color for annot, color in zip(unique_annotations, palette)}
-    # List with colors for all annotations
-    mapped_colors = [annotation_colors[ann] for ann in annotations]
-    
-    # Create the colormap according to the colors
-    cmap_samples = ListedColormap(mapped_colors)
-    cmap_samples = plt.colorbar(ScalarMappable(cmap=cmap_samples), ax=ax, orientation='horizontal', location='top')
-    cmap_samples.set_ticks([])
-    cmap_samples.outline.set_visible(False)
-    
-    ########################################################################################################
-    #                                          PLOT DENDROGRAM                                             # 
-    ########################################################################################################
-
-    ax_dendro = fig.add_axes([0.1, 0.85, 0.8, 0.1])
-    # Adjust the position to be on top of the colormap corresponding to the sample annotations
-    bbox_colorbar = cmap_samples.ax.get_position()
-    ax_dendro.set_position([bbox_colorbar.x0,  bbox_colorbar.y1*0.912, bbox_colorbar.width, 0.13])
-    hierarchy.dendrogram(linkage, ax=ax_dendro, orientation='top', no_labels=True)#, link_color_func=lambda x: 'k') # removing the '#' would turn the lines of the dendrogram black
-
-    ax_dendro.set_axis_off()
-
-    # Create legend patches for annotations
-    legend_patches = [mpatches.Patch(color=color, label=annotation) for annotation, color in annotation_colors.items()]
-    # Add legend for annotations
-    plt.legend(handles=legend_patches, loc='upper left', bbox_to_anchor=(1.35, 1.3), title='Sample Annotations', title_fontsize = 20, fontsize=15)
-    
-    ########################################################################################################
-    #                                      FINAL PLOT WITH TITLE                                           # 
-    ########################################################################################################
-
-    plt.title('H Matrix', fontsize=40, weight = 'bold')
-    if path_to_save != None:
-        plt.savefig(path_to_save)
-    plt.show()
-    plt.close()
-
-    return annotation_colors, rank_colors
-
 def H_heatmap(NMFobj, ranks, sample_annot = None, path_to_save = None):
     """
     Creates a heatmap of the H matrix and saves it at the given path.
@@ -519,15 +297,20 @@ def W_heatmap(NMFobj, ranks, sig_specific = True, sig_annot = None, path_to_save
     regW = NMFobj.get_W(ranks)
 
     matrices = []
+    indices = []
     for i in range(len(ranks)):
         if sig_specific:
             # determine signature specific features and filter the W matrix for those genes
             sigspecifics = SignatureSpecificFeatures(NMFobj, ranks[i])
             genes = NMFobj.input_matrix['genes']
-            indices = [genes.index(name) for name in sigspecifics]
-            matrices.append(regW[i][indices, :])
+            indices.extend(genes.index(name) for name in sigspecifics)
         else:
             matrices.append(regW[i])
+
+    indices = list(set(indices))
+    for i in range(len(ranks)):
+        matrices.append(regW[i][indices, :])
+
     regW = [np.hstack(matrices)]
 
     ########################################################################################################
@@ -638,15 +421,12 @@ def W_heatmap(NMFobj, ranks, sig_specific = True, sig_annot = None, path_to_save
     plt.show()
     plt.close()
 
-
-def SignatureSpecificFeatures(NMFobj, rank, return_all_features=False):
+def SignatureSpecificFeatures(NMFobj, rank):
     # Perform feature extraction
     NMFobj.WcomputeFeatureStats(ranks=[rank])
-    gene_cont_df = NMFobj.feature_contributions.filter(regex=r'^Sig4')
-    if return_all_features:
-        sig_feats = gene_cont_df
-    else:
-        sig_feats = gene_cont_df.loc[gene_cont_df.sum(axis=1)==1]
+    gene_cont_df = NMFobj.feature_contributions.filter(regex=fr'^Sig{rank}')
+    
+    sig_feats = gene_cont_df.loc[gene_cont_df.sum(axis=1)==1]
 
     return list(sig_feats.index)
     #return sig_feats
@@ -663,8 +443,8 @@ def recovery_plot(NMFobj, rank, sample_annot = None, path_to_save = None):
     ----------
     NMFobj
         object from the multipleNMFobject class containing the H matrices
-    ranks
-        integer, for this ranks the recovery plot for the H matrix will be visualized
+    rank
+        integer, for this rank the recovery plot for the H matrix will be visualized
     sample_annot
         None, use the sample annotations that have been saved in the NMF object OR
         list, with the same length as the number of samples will be used as the sample annotations
@@ -826,7 +606,7 @@ def recovery_plot(NMFobj, rank, sample_annot = None, path_to_save = None):
             ax.title.set_position([.5, 1])
     
     # Adding common x-label and y-label to the whole figure
-    fig.text(0.465, 0.04, 'Rank', ha='center', va='center', fontsize=18)
+    fig.text(0.465, 0.04, 'Sorted Feature Position', ha='center', va='center', fontsize=18)
     fig.text(0.06, 0.5, 'Frequency', ha='center', va='center', rotation='vertical', fontsize=18)
 
     # Adding legend for significant p-values
@@ -988,7 +768,7 @@ def optK_plot(NMFobj, plot_metrics = ["FrobError", "FrobError_cv", "meanAmariDis
     # set custom titles
     g.set_titles(col_template="{col_name}")
     for ax, title in zip(g.axes.flat, g.col_names):
-        ax.set_title(custom_titles[title], color = "coral")
+        ax.set_title(custom_titles[title], color = "black")
 
     # adding title and x-axis label
     cols = int(np.ceil(len(valid_metrics)/2))
@@ -1035,7 +815,7 @@ def river(NMFobj, path_to_save = None, ranks = None, useH = False, edges_cutoff 
     sig_labels
         boolean, if True the signatures labels will be shown at the nodes
     sig_annot
-        list with length of maximal rank, these annotations is used for a legend giving the medical values the signatures at the end of the river plot (highest rank presented) are relevant for
+        list with length of maximal rank, these annotations are used for a legend giving the medical values the signatures at the end of the river plot (highest rank presented) are relevant for
     sig_annot_recovery
         boolean, if True the relevant medical annotations for the legend of the highest rank in the river plot are taken from the recovery plot
     sample_annot
